@@ -1,0 +1,28 @@
+# ============================================================
+# SANITA Cloud Deployment Specification for Render.com
+# Author: Ribka Lusiana Harahap (NIM: 243301631022)
+# ============================================================
+
+services:
+  - type: web
+    name: sanita-backend
+    runtime: docker
+    dockerfilePath: ./sanita-backend/Dockerfile
+    dockerContext: ./sanita-backend
+    plan: free
+    region: singapore
+    envVars:
+      - key: GIN_MODE
+        value: release
+      - key: PORT
+        value: 8080
+      - key: TZ
+        value: Asia/Jakarta
+      - key: SANITA_AES_KEY
+        generateValue: true
+      - key: SANITA_HMAC_SECRET
+        generateValue: true
+      - key: JWT_SECRET
+        generateValue: true
+    healthCheckPath: /health
+

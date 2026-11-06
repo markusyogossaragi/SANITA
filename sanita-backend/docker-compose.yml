@@ -1,0 +1,48 @@
+services:
+  sanita-db:
+    image: postgres:16-alpine
+    container_name: sanita-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER:-sanita_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-SanitaSecurePass2026!}
+      POSTGRES_DB: ${DB_NAME:-sanita}
+    volumes:
+      - sanita_pg_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-sanita_user} -d ${DB_NAME:-sanita}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  sanita-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sanita-api
+    restart: always
+    depends_on:
+      sanita-db:
+        condition: service_healthy
+    environment:
+      PORT: 8080
+      DB_HOST: sanita-db
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-sanita_user}
+      DB_PASSWORD: ${DB_PASSWORD:-SanitaSecurePass2026!}
+      DB_NAME: ${DB_NAME:-sanita}
+      DB_SSLMODE: disable
+      JWT_SECRET: ${JWT_SECRET:-sanita-super-secret-anti-breach-token-2026}
+      SANITA_AES_KEY: ${SANITA_AES_KEY:-sanita-enterprise-aes-32byte-key!}
+      SANITA_HMAC_SECRET: ${SANITA_HMAC_SECRET:-sanita-tamper-proof-hmac-key-2026}
+    ports:
+      - "8080:8080"
+    volumes:
+      - sanita_uploads:/app/uploads
+
+volumes:
+  sanita_pg_data:
+  sanita_uploads:
+

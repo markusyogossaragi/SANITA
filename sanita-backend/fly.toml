@@ -1,0 +1,31 @@
+# ============================================================
+# SANITA Cloud Deployment Specification for Fly.io
+# Author: Ribka Lusiana Harahap (NIM: 243301631022)
+# ============================================================
+
+app = "sanita-backend"
+primary_region = "sin"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  GIN_MODE = "release"
+  PORT = "8080"
+  TZ = "Asia/Jakarta"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "10s"
+    method = "GET"
+    path = "/health"
+
