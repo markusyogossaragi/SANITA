@@ -70,15 +70,17 @@ class _RiwayatLaporanViewState extends State<RiwayatLaporanView> {
   }
 
   void _showReportDetail(LaporanModel report) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => Container(
         padding: const EdgeInsets.all(24),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.only(
+        decoration: BoxDecoration(
+          color: isDark ? SanitaColors.darkCard : Colors.white,
+          borderRadius: const BorderRadius.only(
             topLeft: Radius.circular(24),
             topRight: Radius.circular(24),
           ),
@@ -92,7 +94,7 @@ class _RiwayatLaporanViewState extends State<RiwayatLaporanView> {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
+                  color: isDark ? SanitaColors.darkBorder : Colors.grey.shade300,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -104,7 +106,11 @@ class _RiwayatLaporanViewState extends State<RiwayatLaporanView> {
               children: [
                 Text(
                   report.id,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: SanitaColors.primary),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: isDark ? SanitaColors.primaryLight : SanitaColors.primary,
+                  ),
                 ),
                 _buildStatusBadge(report.status),
               ],
@@ -113,15 +119,26 @@ class _RiwayatLaporanViewState extends State<RiwayatLaporanView> {
 
             Text(
               report.jenisMasalah,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: SanitaColors.textDark),
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+                color: isDark ? Colors.white : SanitaColors.textDark,
+              ),
             ),
             const SizedBox(height: 4),
 
             Row(
               children: [
-                const Icon(Icons.location_on, size: 15, color: SanitaColors.primary),
+                Icon(Icons.location_on, size: 15, color: isDark ? SanitaColors.primaryLight : SanitaColors.primary),
                 const SizedBox(width: 4),
-                Text(report.lokasi, style: const TextStyle(fontSize: 13, color: SanitaColors.textDark, fontWeight: FontWeight.w500)),
+                Text(
+                  report.lokasi,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: isDark ? Colors.white70 : SanitaColors.textDark,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
                 const SizedBox(width: 12),
                 const Icon(Icons.access_time, size: 14, color: SanitaColors.textMuted),
                 const SizedBox(width: 4),
@@ -130,23 +147,42 @@ class _RiwayatLaporanViewState extends State<RiwayatLaporanView> {
             ),
             const SizedBox(height: 14),
 
-            const Text('Deskripsi Kondisi:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: SanitaColors.textDark)),
+            Text(
+              'Deskripsi Kondisi:',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+                color: isDark ? Colors.white : SanitaColors.textDark,
+              ),
+            ),
             const SizedBox(height: 4),
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: SanitaColors.background,
+                color: isDark ? SanitaColors.darkSurface : SanitaColors.background,
                 borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: isDark ? SanitaColors.darkBorder : SanitaColors.border),
               ),
               child: Text(
                 report.keterangan,
-                style: const TextStyle(fontSize: 13, color: SanitaColors.textDark, height: 1.4),
+                style: TextStyle(
+                  fontSize: 13,
+                  color: isDark ? SanitaColors.darkText : SanitaColors.textDark,
+                  height: 1.4,
+                ),
               ),
             ),
             if (report.fotoUrl != null && report.fotoUrl!.isNotEmpty) ...[
               const SizedBox(height: 12),
-              const Text('Bukti Foto:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: SanitaColors.textDark)),
+              Text(
+                'Bukti Foto:',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                  color: isDark ? Colors.white : SanitaColors.textDark,
+                ),
+              ),
               const SizedBox(height: 6),
               ClipRRect(
                 borderRadius: BorderRadius.circular(10),
@@ -158,12 +194,19 @@ class _RiwayatLaporanViewState extends State<RiwayatLaporanView> {
             const SizedBox(height: 18),
 
             // Stepper Pelacakan
-            const Text('Tahapan Tindak Lanjut:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: SanitaColors.textDark)),
+            Text(
+              'Tahapan Tindak Lanjut:',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+                color: isDark ? Colors.white : SanitaColors.textDark,
+              ),
+            ),
             const SizedBox(height: 10),
-            _buildTimelineStep(1, 'Laporan Masuk', 'Tercatat di sistem monitoring SANITA', true),
-            _buildTimelineStep(2, 'Verifikasi Lapangan', 'Petugas kesling memeriksa titik lokasi', report.status != 'terkirim'),
-            _buildTimelineStep(3, 'Tindakan Penanganan', 'Pembersihan / perbaikan sarana sedang berjalan', report.status == 'diproses' || report.status == 'selesai'),
-            _buildTimelineStep(4, 'Selesai & Divalidasi', 'Kondisi sanitasi kembali memenuhi standar', report.status == 'selesai'),
+            _buildTimelineStep(1, 'Laporan Masuk', 'Tercatat di sistem monitoring SANITA', true, isDark),
+            _buildTimelineStep(2, 'Verifikasi Lapangan', 'Petugas kesling memeriksa titik lokasi', report.status != 'terkirim', isDark),
+            _buildTimelineStep(3, 'Tindakan Penanganan', 'Pembersihan / perbaikan sarana sedang berjalan', report.status == 'diproses' || report.status == 'selesai', isDark),
+            _buildTimelineStep(4, 'Selesai & Divalidasi', 'Kondisi sanitasi kembali memenuhi standar', report.status == 'selesai', isDark),
 
             const SizedBox(height: 20),
 
@@ -201,7 +244,7 @@ class _RiwayatLaporanViewState extends State<RiwayatLaporanView> {
     );
   }
 
-  Widget _buildTimelineStep(int stepNum, String title, String subtitle, bool isDone) {
+  Widget _buildTimelineStep(int stepNum, String title, String subtitle, bool isDone, [bool isDark = false]) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Row(
@@ -209,7 +252,7 @@ class _RiwayatLaporanViewState extends State<RiwayatLaporanView> {
         children: [
           CircleAvatar(
             radius: 11,
-            backgroundColor: isDone ? SanitaColors.primary : Colors.grey.shade300,
+            backgroundColor: isDone ? SanitaColors.primary : (isDark ? SanitaColors.darkBorder : Colors.grey.shade300),
             child: isDone
                 ? const Icon(Icons.check, size: 13, color: Colors.white)
                 : Text('$stepNum', style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold)),
@@ -224,10 +267,10 @@ class _RiwayatLaporanViewState extends State<RiwayatLaporanView> {
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: isDone ? FontWeight.bold : FontWeight.w500,
-                    color: isDone ? SanitaColors.textDark : SanitaColors.textMuted,
+                    color: isDone ? (isDark ? Colors.white : SanitaColors.textDark) : (isDark ? SanitaColors.darkTextMuted : SanitaColors.textMuted),
                   ),
                 ),
-                Text(subtitle, style: const TextStyle(fontSize: 11, color: SanitaColors.textMuted)),
+                Text(subtitle, style: TextStyle(fontSize: 11, color: isDark ? SanitaColors.darkTextMuted : SanitaColors.textMuted)),
               ],
             ),
           ),
@@ -239,8 +282,10 @@ class _RiwayatLaporanViewState extends State<RiwayatLaporanView> {
   @override
   Widget build(BuildContext context) {
     final filtered = _filteredReports;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
+      backgroundColor: isDark ? SanitaColors.darkBackground : SanitaColors.background,
       body: SafeArea(
         child: Column(
           children: [
@@ -354,27 +399,36 @@ class _RiwayatLaporanViewState extends State<RiwayatLaporanView> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text(
+                                Text(
                                   'Riwayat Laporan',
-                                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: SanitaColors.textDark),
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: isDark ? Colors.white : SanitaColors.textDark,
+                                  ),
                                 ),
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                   decoration: BoxDecoration(
-                                    color: SanitaColors.primarySurface,
+                                    color: isDark ? SanitaColors.darkCard : SanitaColors.primarySurface,
                                     borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: isDark ? SanitaColors.darkBorder : Colors.transparent),
                                   ),
                                   child: Text(
                                     '${filtered.length} ditemukan',
-                                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: SanitaColors.primary),
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: isDark ? SanitaColors.primaryLight : SanitaColors.primary,
+                                    ),
                                   ),
                                 ),
                               ],
                             ),
                             const SizedBox(height: 2),
-                            const Text(
+                            Text(
                               'Pantau status tindak lanjut penanganan sanitasi lingkungan kerja.',
-                              style: TextStyle(fontSize: 12, color: SanitaColors.textMuted),
+                              style: TextStyle(fontSize: 12, color: isDark ? SanitaColors.darkTextMuted : SanitaColors.textMuted),
                             ),
                             const SizedBox(height: 14),
 
@@ -382,9 +436,10 @@ class _RiwayatLaporanViewState extends State<RiwayatLaporanView> {
                             TextField(
                               controller: _searchController,
                               onChanged: (v) => setState(() => _searchQuery = v),
+                              style: TextStyle(color: isDark ? Colors.white : SanitaColors.textDark, fontSize: 13),
                               decoration: InputDecoration(
                                 hintText: 'Cari kategori, lokasi, atau no. tiket...',
-                                hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 12),
+                                hintStyle: TextStyle(color: isDark ? SanitaColors.darkTextMuted : Colors.grey.shade400, fontSize: 12),
                                 prefixIcon: const Icon(Icons.search, size: 20, color: SanitaColors.textMuted),
                                 suffixIcon: _searchQuery.isNotEmpty
                                     ? IconButton(
@@ -396,10 +451,10 @@ class _RiwayatLaporanViewState extends State<RiwayatLaporanView> {
                                       )
                                     : null,
                                 filled: true,
-                                fillColor: Colors.white,
+                                fillColor: isDark ? SanitaColors.darkCard : Colors.white,
                                 contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: SanitaColors.border)),
-                                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: SanitaColors.border)),
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: isDark ? SanitaColors.darkBorder : SanitaColors.border)),
+                                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: isDark ? SanitaColors.darkBorder : SanitaColors.border)),
                               ),
                             ),
 
@@ -414,11 +469,20 @@ class _RiwayatLaporanViewState extends State<RiwayatLaporanView> {
                                   return Padding(
                                     padding: const EdgeInsets.only(right: 6),
                                     child: FilterChip(
-                                      label: Text(f, style: TextStyle(fontSize: 12, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal, color: isSelected ? SanitaColors.primaryDark : SanitaColors.textDark)),
+                                      label: Text(
+                                        f,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                          color: isSelected
+                                              ? (isDark ? Colors.white : SanitaColors.primaryDark)
+                                              : (isDark ? Colors.white70 : SanitaColors.textDark),
+                                        ),
+                                      ),
                                       selected: isSelected,
-                                      backgroundColor: Colors.white,
-                                      selectedColor: SanitaColors.primarySurface,
-                                      side: BorderSide(color: isSelected ? SanitaColors.primary : SanitaColors.border),
+                                      backgroundColor: isDark ? SanitaColors.darkCard : Colors.white,
+                                      selectedColor: isDark ? SanitaColors.primaryDark : SanitaColors.primarySurface,
+                                      side: BorderSide(color: isSelected ? SanitaColors.primary : (isDark ? SanitaColors.darkBorder : SanitaColors.border)),
                                       onSelected: (val) {
                                         setState(() {
                                           _selectedFilter = f;
@@ -438,13 +502,13 @@ class _RiwayatLaporanViewState extends State<RiwayatLaporanView> {
                                   padding: const EdgeInsets.symmetric(vertical: 40),
                                   child: Column(
                                     children: [
-                                      Icon(Icons.inbox_rounded, size: 52, color: Colors.grey.shade400),
+                                      Icon(Icons.inbox_rounded, size: 52, color: isDark ? SanitaColors.darkBorder : Colors.grey.shade400),
                                       const SizedBox(height: 12),
-                                      const Text(
+                                      Text(
                                         'Tidak ada laporan yang sesuai.',
                                         style: TextStyle(
                                           fontSize: 14,
-                                          color: SanitaColors.textMuted,
+                                          color: isDark ? SanitaColors.darkTextMuted : SanitaColors.textMuted,
                                           fontWeight: FontWeight.w500,
                                         ),
                                       ),
@@ -467,9 +531,9 @@ class _RiwayatLaporanViewState extends State<RiwayatLaporanView> {
                                       child: Container(
                                         padding: const EdgeInsets.all(14),
                                         decoration: BoxDecoration(
-                                          color: Colors.white,
+                                          color: isDark ? SanitaColors.darkCard : Colors.white,
                                           borderRadius: BorderRadius.circular(12),
-                                          border: Border.all(color: SanitaColors.border),
+                                          border: Border.all(color: isDark ? SanitaColors.darkBorder : SanitaColors.border),
                                           boxShadow: [
                                             BoxShadow(
                                               color: Colors.black.withOpacity(0.02),
@@ -486,7 +550,11 @@ class _RiwayatLaporanViewState extends State<RiwayatLaporanView> {
                                               children: [
                                                 Text(
                                                   r.id,
-                                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: SanitaColors.primary),
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 12,
+                                                    color: isDark ? SanitaColors.primaryLight : SanitaColors.primary,
+                                                  ),
                                                 ),
                                                 _buildStatusBadge(r.status),
                                               ],
@@ -494,7 +562,11 @@ class _RiwayatLaporanViewState extends State<RiwayatLaporanView> {
                                             const SizedBox(height: 6),
                                             Text(
                                               r.jenisMasalah,
-                                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: SanitaColors.textDark),
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 14,
+                                                color: isDark ? Colors.white : SanitaColors.textDark,
+                                              ),
                                             ),
                                             const SizedBox(height: 6),
                                             Row(
@@ -504,21 +576,25 @@ class _RiwayatLaporanViewState extends State<RiwayatLaporanView> {
                                                 Expanded(
                                                   child: Text(
                                                     r.lokasi,
-                                                    style: const TextStyle(fontSize: 12, color: SanitaColors.textMuted),
+                                                    style: TextStyle(fontSize: 12, color: isDark ? SanitaColors.darkTextMuted : SanitaColors.textMuted),
                                                     overflow: TextOverflow.ellipsis,
                                                   ),
                                                 ),
                                                 const SizedBox(width: 8),
                                                 Text(
                                                   _formatRelativeTime(r.createdAt),
-                                                  style: const TextStyle(fontSize: 11, color: SanitaColors.textMuted),
+                                                  style: TextStyle(fontSize: 11, color: isDark ? SanitaColors.darkTextMuted : SanitaColors.textMuted),
                                                 ),
                                               ],
                                             ),
                                             const SizedBox(height: 8),
                                             Text(
                                               r.keterangan,
-                                              style: const TextStyle(fontSize: 13, color: SanitaColors.textDark, height: 1.3),
+                                              style: TextStyle(
+                                                fontSize: 13,
+                                                color: isDark ? SanitaColors.darkText : SanitaColors.textDark,
+                                                height: 1.3,
+                                              ),
                                               maxLines: 2,
                                               overflow: TextOverflow.ellipsis,
                                             ),
@@ -528,7 +604,11 @@ class _RiwayatLaporanViewState extends State<RiwayatLaporanView> {
                                               children: [
                                                 Text(
                                                   'Lihat Detail Pelacakan →',
-                                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: SanitaColors.primary.withOpacity(0.9)),
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: isDark ? SanitaColors.primaryLight : SanitaColors.primary.withOpacity(0.9),
+                                                  ),
                                                 ),
                                               ],
                                             ),

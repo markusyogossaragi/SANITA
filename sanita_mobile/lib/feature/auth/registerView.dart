@@ -63,7 +63,7 @@ class _RegisterViewState extends State<RegisterView> {
             backgroundColor: SanitaColors.primary,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            content: Text('Akun berhasil dibuat. Selamat datang, ${user.fullName}!'),
+            content: Text('Selamat datang, ${user.fullName}! Akun berhasil dibuat.'),
           ),
         );
 
@@ -101,10 +101,18 @@ class _RegisterViewState extends State<RegisterView> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final labelColor = isDark ? Colors.white : SanitaColors.textDark;
+    final hintColor = isDark ? SanitaColors.darkTextMuted : Colors.grey.shade400;
+    final fieldFillColor = isDark ? SanitaColors.darkCard : Colors.white;
+    final borderColor = isDark ? SanitaColors.darkBorder : SanitaColors.border;
+
     return Scaffold(
       backgroundColor: isDark ? SanitaColors.darkBackground : Colors.white,
       appBar: AppBar(
         title: const Text('Daftar Akun SANITA', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+        backgroundColor: isDark ? SanitaColors.darkSurface : SanitaColors.primary,
+        foregroundColor: Colors.white,
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -112,94 +120,114 @@ class _RegisterViewState extends State<RegisterView> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text(
+              Text(
                 'Registrasi Pengguna Baru',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: SanitaColors.textDark),
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: labelColor),
               ),
               const SizedBox(height: 4),
-              const Text(
+              Text(
                 'Daftar untuk mengakses sistem pelaporan dan sanitasi kerja.',
-                style: TextStyle(fontSize: 12, color: SanitaColors.textMuted),
+                style: TextStyle(fontSize: 12, color: isDark ? SanitaColors.darkTextMuted : SanitaColors.textMuted),
               ),
               const SizedBox(height: 24),
 
               // Nama Lengkap
-              const Text('Nama Lengkap', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: SanitaColors.textDark)),
+              Text('Nama Lengkap', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: labelColor)),
               const SizedBox(height: 6),
               TextField(
                 controller: _nameCtrl,
+                style: TextStyle(color: labelColor, fontSize: 14),
                 decoration: InputDecoration(
-                  hintText: 'Contoh: Ribka Lusiana Harahap',
+                  hintText: 'Masukkan nama lengkap Anda',
+                  hintStyle: TextStyle(fontSize: 13, color: hintColor),
                   prefixIcon: const Icon(Icons.badge_outlined, size: 20, color: SanitaColors.primary),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: SanitaColors.border)),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: SanitaColors.border)),
+                  filled: true,
+                  fillColor: fieldFillColor,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: borderColor)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: borderColor)),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 ),
               ),
               const SizedBox(height: 16),
 
               // Username
-              const Text('Username', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: SanitaColors.textDark)),
+              Text('Username', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: labelColor)),
               const SizedBox(height: 6),
               TextField(
                 controller: _usernameCtrl,
+                style: TextStyle(color: labelColor, fontSize: 14),
                 decoration: InputDecoration(
-                  hintText: 'Pilih username login',
+                  hintText: 'Masukkan username Anda',
+                  hintStyle: TextStyle(fontSize: 13, color: hintColor),
                   prefixIcon: const Icon(Icons.person_outline, size: 20, color: SanitaColors.primary),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: SanitaColors.border)),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: SanitaColors.border)),
+                  filled: true,
+                  fillColor: fieldFillColor,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: borderColor)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: borderColor)),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 ),
               ),
               const SizedBox(height: 16),
 
               // Email
-              const Text('Email', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: SanitaColors.textDark)),
+              Text('Email', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: labelColor)),
               const SizedBox(height: 6),
               TextField(
                 controller: _emailCtrl,
                 keyboardType: TextInputType.emailAddress,
+                style: TextStyle(color: labelColor, fontSize: 14),
                 decoration: InputDecoration(
-                  hintText: 'nama@domain.com',
+                  hintText: 'Masukkan alamat email Anda',
+                  hintStyle: TextStyle(fontSize: 13, color: hintColor),
                   prefixIcon: const Icon(Icons.email_outlined, size: 20, color: SanitaColors.primary),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: SanitaColors.border)),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: SanitaColors.border)),
+                  filled: true,
+                  fillColor: fieldFillColor,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: borderColor)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: borderColor)),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 ),
               ),
               const SizedBox(height: 16),
 
               // Password
-              const Text('Password', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: SanitaColors.textDark)),
+              Text('Password', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: labelColor)),
               const SizedBox(height: 6),
               TextField(
                 controller: _passwordCtrl,
                 obscureText: _obscurePassword,
+                style: TextStyle(color: labelColor, fontSize: 14),
                 decoration: InputDecoration(
-                  hintText: 'Minimal 6 karakter',
+                  hintText: 'Masukkan password Anda',
+                  hintStyle: TextStyle(fontSize: 13, color: hintColor),
                   prefixIcon: const Icon(Icons.lock_outline, size: 20, color: SanitaColors.primary),
+                  filled: true,
+                  fillColor: fieldFillColor,
                   suffixIcon: IconButton(
                     icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility, size: 20, color: SanitaColors.textMuted),
                     onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                   ),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: SanitaColors.border)),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: SanitaColors.border)),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: borderColor)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: borderColor)),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 ),
               ),
               const SizedBox(height: 16),
 
               // Konfirmasi Password
-              const Text('Konfirmasi Password', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: SanitaColors.textDark)),
+              Text('Konfirmasi Password', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: labelColor)),
               const SizedBox(height: 6),
               TextField(
                 controller: _confirmPasswordCtrl,
                 obscureText: _obscurePassword,
+                style: TextStyle(color: labelColor, fontSize: 14),
                 decoration: InputDecoration(
                   hintText: 'Ketik ulang password Anda',
+                  hintStyle: TextStyle(fontSize: 13, color: hintColor),
                   prefixIcon: const Icon(Icons.lock_reset, size: 20, color: SanitaColors.primary),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: SanitaColors.border)),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: SanitaColors.border)),
+                  filled: true,
+                  fillColor: fieldFillColor,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: borderColor)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: borderColor)),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 ),
               ),

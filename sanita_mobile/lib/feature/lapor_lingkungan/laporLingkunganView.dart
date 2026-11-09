@@ -31,6 +31,7 @@ class _LaporLingkunganViewState extends State<LaporLingkunganView> {
   String _selectedUrgensi = 'Sedang';
   File? _pickedImage;
   String? _pickedImagePath;
+  String? _attachedFileName;
   bool _isSubmitting = false;
 
   final List<String> _kategoriMasalah = [
@@ -125,6 +126,7 @@ class _LaporLingkunganViewState extends State<LaporLingkunganView> {
         setState(() {
           _pickedImage = File(picked.path);
           _pickedImagePath = picked.path;
+          _attachedFileName = picked.name;
         });
       }
     } catch (e) {
@@ -327,6 +329,7 @@ class _LaporLingkunganViewState extends State<LaporLingkunganView> {
       _selectedUrgensi = 'Sedang';
       _pickedImage = null;
       _pickedImagePath = null;
+      _attachedFileName = null;
     });
   }
 
@@ -547,87 +550,51 @@ class _LaporLingkunganViewState extends State<LaporLingkunganView> {
                               const Text('Upload Bukti Foto (Kamera / Galeri)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
                               const SizedBox(height: 6),
 
-                              if (_pickedImage != null) ...[
-                                Container(
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: SanitaColors.primary, width: 1.5),
-                                  ),
-                                  child: Stack(
-                                    children: [
-                                      ClipRRect(
-                                        borderRadius: BorderRadius.circular(10),
-                                        child: Image.file(
-                                          _pickedImage!,
-                                          height: 160,
-                                          width: double.infinity,
-                                          fit: BoxFit.cover,
-                                        ),
-                                      ),
-                                      Positioned(
-                                        top: 8,
-                                        right: 8,
-                                        child: GestureDetector(
-                                          onTap: () {
-                                            setState(() {
-                                              _pickedImage = null;
-                                              _pickedImagePath = null;
-                                            });
-                                          },
-                                          child: Container(
-                                            padding: const EdgeInsets.all(6),
-                                            decoration: const BoxDecoration(
-                                              color: Colors.black54,
-                                              shape: BoxShape.circle,
-                                            ),
-                                            child: const Icon(Icons.close, color: Colors.white, size: 18),
-                                          ),
-                                        ),
-                                      ),
-                                      Positioned(
-                                        bottom: 8,
-                                        left: 8,
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                          decoration: BoxDecoration(
-                                            color: Colors.black54,
-                                            borderRadius: BorderRadius.circular(6),
-                                          ),
-                                          child: const Row(
-                                            children: [
-                                              Icon(Icons.check_circle, color: SanitaColors.primaryLight, size: 14),
-                                              SizedBox(width: 4),
-                                              Text('Foto Berhasil Terlampir', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: isDark ? SanitaColors.darkCard : Colors.white,
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: isDark ? SanitaColors.darkBorder : SanitaColors.border),
                                 ),
-                              ] else ...[
-                                InkWell(
-                                  onTap: _showPhotoSourceSheet,
-                                  borderRadius: BorderRadius.circular(12),
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-                                    decoration: BoxDecoration(
-                                      color: isDark ? SanitaColors.darkCard : Colors.white,
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(color: isDark ? SanitaColors.darkBorder : SanitaColors.border, style: BorderStyle.solid),
+                                child: Row(
+                                  children: [
+                                    OutlinedButton.icon(
+                                      onPressed: _showPhotoSourceSheet,
+                                      icon: const Icon(Icons.camera_alt_outlined, size: 16),
+                                      label: const Text('Ambil / Pilih Foto', style: TextStyle(fontSize: 12)),
+                                      style: OutlinedButton.styleFrom(
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                        foregroundColor: SanitaColors.primary,
+                                        side: const BorderSide(color: SanitaColors.primary),
+                                      ),
                                     ),
-                                    child: const Column(
-                                      children: [
-                                        Icon(Icons.add_a_photo_outlined, size: 36, color: SanitaColors.primary),
-                                        SizedBox(height: 8),
-                                        Text('Ambil Foto Kamera atau Pilih dari Galeri', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: SanitaColors.primary)),
-                                        SizedBox(height: 2),
-                                        Text('Format JPG / PNG, ukuran otomatis terkompresi', style: TextStyle(fontSize: 11, color: SanitaColors.textMuted)),
-                                      ],
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        _attachedFileName ?? 'Belum ada foto',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: _attachedFileName != null ? SanitaColors.primary : (isDark ? SanitaColors.darkTextMuted : SanitaColors.textMuted),
+                                          fontWeight: _attachedFileName != null ? FontWeight.w600 : FontWeight.normal,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
                                     ),
-                                  ),
+                                    if (_attachedFileName != null)
+                                      IconButton(
+                                        icon: const Icon(Icons.close, size: 18, color: SanitaColors.alertRed),
+                                        onPressed: () {
+                                          setState(() {
+                                            _pickedImage = null;
+                                            _pickedImagePath = null;
+                                            _attachedFileName = null;
+                                          });
+                                        },
+                                      ),
+                                  ],
                                 ),
-                              ],
+                              ),
 
                               const SizedBox(height: 24),
 

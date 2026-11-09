@@ -122,52 +122,62 @@ class _EdukasiViewState extends State<EdukasiView> {
   @override
   Widget build(BuildContext context) {
     final filtered = _filteredMateri;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
+      backgroundColor: isDark ? SanitaColors.darkBackground : SanitaColors.background,
       appBar: AppBar(
         title: const Text('Edukasi Kesling', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+        backgroundColor: isDark ? SanitaColors.darkSurface : SanitaColors.primary,
+        foregroundColor: Colors.white,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: widget.onBackToHome,
         ),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator(color: SanitaColors.primary))
           : Column(
               children: [
                 // Top Education Header Banner
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.fromLTRB(20, 16, 20, 18),
-                  decoration: const BoxDecoration(
-                    color: SanitaColors.primarySurface,
-                    border: Border(bottom: BorderSide(color: Color(0xFFD1FAE5))),
+                  decoration: BoxDecoration(
+                    color: isDark ? SanitaColors.darkSurface : SanitaColors.primarySurface,
+                    border: Border(bottom: BorderSide(color: isDark ? SanitaColors.darkBorder : const Color(0xFFD1FAE5))),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'Modul Sanitasi & Kesehatan Lingkungan',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: SanitaColors.primaryDark),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                          color: isDark ? SanitaColors.primaryLight : SanitaColors.primaryDark,
+                        ),
                       ),
                       const SizedBox(height: 2),
-                      const Text(
+                      Text(
                         'Pelajari panduan baku sanitasi sesuai Permenkes & regulasi K3 nasional.',
-                        style: TextStyle(fontSize: 12, color: SanitaColors.textDark),
+                        style: TextStyle(fontSize: 12, color: isDark ? Colors.white70 : SanitaColors.textDark),
                       ),
                       const SizedBox(height: 12),
 
                       // Search input
                       TextField(
                         onChanged: (v) => setState(() => _searchQuery = v),
+                        style: TextStyle(color: isDark ? Colors.white : SanitaColors.textDark, fontSize: 13),
                         decoration: InputDecoration(
                           hintText: 'Cari modul, topik, atau kata kunci...',
+                          hintStyle: TextStyle(fontSize: 13, color: isDark ? SanitaColors.darkTextMuted : Colors.grey.shade400),
                           prefixIcon: const Icon(Icons.search, size: 18, color: SanitaColors.textMuted),
                           filled: true,
-                          fillColor: Colors.white,
+                          fillColor: isDark ? SanitaColors.darkCard : Colors.white,
                           contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: SanitaColors.border)),
-                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: SanitaColors.border)),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: isDark ? SanitaColors.darkBorder : SanitaColors.border)),
+                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: isDark ? SanitaColors.darkBorder : SanitaColors.border)),
                         ),
                       ),
                     ],
@@ -201,13 +211,38 @@ class _EdukasiViewState extends State<EdukasiView> {
                               return Padding(
                                 padding: const EdgeInsets.only(bottom: 12),
                                 child: Card(
+                                  color: isDark ? SanitaColors.darkCard : Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                    side: BorderSide(color: isDark ? SanitaColors.darkBorder : SanitaColors.border),
+                                  ),
                                   child: ExpansionTile(
                                     leading: CircleAvatar(
-                                      backgroundColor: SanitaColors.primarySurface,
-                                      child: Text('${item.urutan}', style: const TextStyle(color: SanitaColors.primary, fontWeight: FontWeight.bold)),
+                                      backgroundColor: isDark ? SanitaColors.primaryDark : SanitaColors.primarySurface,
+                                      child: Text(
+                                        '${item.urutan}',
+                                        style: TextStyle(
+                                          color: isDark ? Colors.white : SanitaColors.primary,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
                                     ),
-                                    title: Text(item.judul, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: SanitaColors.textDark)),
-                                    subtitle: Text(item.kategori, style: const TextStyle(fontSize: 12, color: SanitaColors.primary, fontWeight: FontWeight.w600)),
+                                    title: Text(
+                                      item.judul,
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                        color: isDark ? Colors.white : SanitaColors.textDark,
+                                      ),
+                                    ),
+                                    subtitle: Text(
+                                      item.kategori,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: isDark ? SanitaColors.primaryLight : SanitaColors.primary,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
                                     children: [
                                       Padding(
                                         padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -217,14 +252,28 @@ class _EdukasiViewState extends State<EdukasiView> {
                                             Container(
                                               padding: const EdgeInsets.all(12),
                                               decoration: BoxDecoration(
-                                                color: const Color(0xFFF8FAFC),
+                                                color: isDark ? SanitaColors.darkSurface : const Color(0xFFF8FAFC),
                                                 borderRadius: BorderRadius.circular(8),
-                                                border: Border.all(color: SanitaColors.border),
+                                                border: Border.all(color: isDark ? SanitaColors.darkBorder : SanitaColors.border),
                                               ),
-                                              child: Text(item.ringkasan, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: SanitaColors.textDark)),
+                                              child: Text(
+                                                item.ringkasan,
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: isDark ? Colors.white70 : SanitaColors.textDark,
+                                                ),
+                                              ),
                                             ),
                                             const SizedBox(height: 10),
-                                            Text(item.konten, style: const TextStyle(fontSize: 13, height: 1.5, color: SanitaColors.textDark)),
+                                            Text(
+                                              item.konten,
+                                              style: TextStyle(
+                                                fontSize: 13,
+                                                height: 1.5,
+                                                color: isDark ? SanitaColors.darkText : SanitaColors.textDark,
+                                              ),
+                                            ),
                                             const SizedBox(height: 12),
                                             Row(
                                               children: [
@@ -232,7 +281,11 @@ class _EdukasiViewState extends State<EdukasiView> {
                                                 const SizedBox(width: 4),
                                                 Text(
                                                   'Dasar Regulasi: ${item.referensi}',
-                                                  style: const TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: SanitaColors.textMuted),
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    fontStyle: FontStyle.italic,
+                                                    color: isDark ? SanitaColors.darkTextMuted : SanitaColors.textMuted,
+                                                  ),
                                                 ),
                                               ],
                                             ),

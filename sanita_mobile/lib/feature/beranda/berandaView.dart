@@ -237,19 +237,19 @@ class _BerandaViewState extends State<BerandaView> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    const Text(
+                                    Text(
                                       'Status Lingkungan Kerja',
-                                      style: TextStyle(fontSize: 11, color: SanitaColors.textMuted, fontWeight: FontWeight.w500),
+                                      style: TextStyle(fontSize: 11, color: isDark ? SanitaColors.darkTextMuted : SanitaColors.textMuted, fontWeight: FontWeight.w500),
                                     ),
                                     const SizedBox(height: 1),
-                                    const Text(
+                                    Text(
                                       '94% Kepatuhan Sanitasi',
-                                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: SanitaColors.primaryDark),
+                                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: isDark ? SanitaColors.primaryLight : SanitaColors.primaryDark),
                                     ),
                                     const SizedBox(height: 1),
                                     Text(
                                       '6 Indikator Terpantau Memenuhi Kriteria Higiene',
-                                      style: TextStyle(fontSize: 11, color: Colors.green.shade700, fontWeight: FontWeight.w600),
+                                      style: TextStyle(fontSize: 11, color: isDark ? const Color(0xFF4ADE80) : Colors.green.shade700, fontWeight: FontWeight.w600),
                                     ),
                                   ],
                                 ),
@@ -267,12 +267,12 @@ class _BerandaViewState extends State<BerandaView> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text(
+                            Text(
                               'Menu Utama',
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
-                                color: SanitaColors.textDark,
+                                color: isDark ? Colors.white : SanitaColors.textDark,
                               ),
                             ),
                             Text(
@@ -336,9 +336,9 @@ class _BerandaViewState extends State<BerandaView> {
                         child: Container(
                           padding: const EdgeInsets.all(14),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF0FDF4),
+                            color: isDark ? SanitaColors.darkCard : const Color(0xFFF0FDF4),
                             borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: const Color(0xFFBBF7D0)),
+                            border: Border.all(color: isDark ? SanitaColors.darkBorder : const Color(0xFFBBF7D0)),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -346,18 +346,18 @@ class _BerandaViewState extends State<BerandaView> {
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  const Row(
+                                  Row(
                                     children: [
-                                      Icon(Icons.lightbulb_outline, size: 18, color: Color(0xFF16A34A)),
-                                      SizedBox(width: 6),
+                                      Icon(Icons.lightbulb_outline, size: 18, color: isDark ? SanitaColors.accentAmber : const Color(0xFF16A34A)),
+                                      const SizedBox(width: 6),
                                       Text(
                                         'Tip Sanitasi Harian',
-                                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF15803D)),
+                                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? SanitaColors.primaryLight : const Color(0xFF15803D)),
                                       ),
                                     ],
                                   ),
                                   IconButton(
-                                    icon: const Icon(Icons.refresh, size: 16, color: Color(0xFF16A34A)),
+                                    icon: Icon(Icons.refresh, size: 16, color: isDark ? SanitaColors.primaryLight : const Color(0xFF16A34A)),
                                     onPressed: _nextTip,
                                     tooltip: 'Tip Berikutnya',
                                     padding: EdgeInsets.zero,
@@ -368,12 +368,12 @@ class _BerandaViewState extends State<BerandaView> {
                               const SizedBox(height: 6),
                               Text(
                                 activeTip['title']!,
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: SanitaColors.textDark),
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isDark ? Colors.white : SanitaColors.textDark),
                               ),
                               const SizedBox(height: 3),
                               Text(
                                 activeTip['desc']!,
-                                style: const TextStyle(fontSize: 11, color: Color(0xFF334155), height: 1.4),
+                                style: TextStyle(fontSize: 11, color: isDark ? SanitaColors.darkTextMuted : const Color(0xFF334155), height: 1.4),
                               ),
                             ],
                           ),
@@ -394,24 +394,24 @@ class _BerandaViewState extends State<BerandaView> {
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    const Text(
+                                    Text(
                                       'Ringkasan Aktivitas',
                                       style: TextStyle(
                                         fontWeight: FontWeight.bold,
                                         fontSize: 15,
-                                        color: SanitaColors.textDark,
+                                        color: isDark ? Colors.white : SanitaColors.textDark,
                                       ),
                                     ),
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
                                       decoration: BoxDecoration(
-                                        color: SanitaColors.primarySurface,
+                                        color: isDark ? SanitaColors.primary.withOpacity(0.2) : SanitaColors.primarySurface,
                                         borderRadius: BorderRadius.circular(10),
                                       ),
                                       child: Text(
                                         '${widget.reportCount} laporan aktif',
-                                        style: const TextStyle(
-                                          color: SanitaColors.primary,
+                                        style: TextStyle(
+                                          color: isDark ? SanitaColors.primaryLight : SanitaColors.primary,
                                           fontWeight: FontWeight.bold,
                                           fontSize: 11,
                                         ),
@@ -420,11 +420,11 @@ class _BerandaViewState extends State<BerandaView> {
                                   ],
                                 ),
                                 const SizedBox(height: 8),
-                                const Text(
+                                Text(
                                   'Mulai dari pemeriksaan sanitasi atau periksa riwayat laporan masalah lingkungan kerja yang sedang diproses.',
                                   style: TextStyle(
                                     fontSize: 12,
-                                    color: SanitaColors.textMuted,
+                                    color: isDark ? SanitaColors.darkTextMuted : SanitaColors.textMuted,
                                     height: 1.4,
                                   ),
                                 ),
@@ -504,18 +504,18 @@ class _BerandaViewState extends State<BerandaView> {
             const SizedBox(height: 8),
             Text(
               title,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.bold,
-                color: SanitaColors.textDark,
+                color: isDark ? Colors.white : SanitaColors.textDark,
               ),
             ),
             const SizedBox(height: 2),
             Text(
               desc,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 10,
-                color: SanitaColors.textMuted,
+                color: isDark ? SanitaColors.darkTextMuted : SanitaColors.textMuted,
               ),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,

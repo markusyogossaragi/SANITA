@@ -1,4 +1,7 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/theme/theme.dart';
 import '../../core/models/models.dart';
 import '../../core/repositories/authRepository.dart';
@@ -18,6 +21,7 @@ class _EditProfilViewState extends State<EditProfilView> {
   late TextEditingController _emailCtrl;
   late TextEditingController _phoneCtrl;
   late String _selectedRole;
+  File? _avatarFile;
 
   bool _isSaving = false;
   final _authRepo = AuthRepository();
@@ -39,6 +43,12 @@ class _EditProfilViewState extends State<EditProfilView> {
     _emailCtrl = TextEditingController(text: widget.currentUser.email ?? '');
     _phoneCtrl = TextEditingController(text: widget.currentUser.phone ?? '');
 
+    if (widget.currentUser.avatarUrl != null &&
+        widget.currentUser.avatarUrl!.isNotEmpty &&
+        File(widget.currentUser.avatarUrl!).existsSync()) {
+      _avatarFile = File(widget.currentUser.avatarUrl!);
+    }
+
     // Select role or fallback to first option
     if (_roleOptions.contains(widget.currentUser.role)) {
       _selectedRole = widget.currentUser.role;
@@ -53,6 +63,74 @@ class _EditProfilViewState extends State<EditProfilView> {
     _emailCtrl.dispose();
     _phoneCtrl.dispose();
     super.dispose();
+  }
+
+  void _pickAvatar() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        return SafeArea(
+          child: Container(
+            color: isDark ? SanitaColors.darkSurface : Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Ubah Foto Profil',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: isDark ? Colors.white : SanitaColors.textDark,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ListTile(
+                  leading: const Icon(Icons.camera_alt, color: SanitaColors.primary),
+                  title: Text(
+                    'Ambil Foto Kamera',
+                    style: TextStyle(color: isDark ? Colors.white : SanitaColors.textDark),
+                  ),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _selectImage(ImageSource.camera);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.photo_library, color: SanitaColors.primary),
+                  title: Text(
+                    'Pilih dari Galeri',
+                    style: TextStyle(color: isDark ? Colors.white : SanitaColors.textDark),
+                  ),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _selectImage(ImageSource.gallery);
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _selectImage(ImageSource source) async {
+    try {
+      final picker = ImagePicker();
+      final picked = await picker.pickImage(source: source, maxWidth: 600, imageQuality: 85);
+      if (picked != null) {
+        setState(() {
+          _avatarFile = File(picked.path);
+        });
+      }
+    } catch (e) {
+      debugPrint('Error picking image: $e');
+    }
   }
 
   void _saveProfile() async {
@@ -76,10 +154,15 @@ class _EditProfilViewState extends State<EditProfilView> {
       role: _selectedRole,
       email: newEmail.isNotEmpty ? newEmail : widget.currentUser.email,
       phone: newPhone.isNotEmpty ? newPhone : widget.currentUser.phone,
-      avatarUrl: widget.currentUser.avatarUrl,
+      avatarUrl: _avatarFile != null ? _avatarFile!.path : widget.currentUser.avatarUrl,
     );
 
     try {
+      if (_avatarFile != null) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('sanita_avatar_${updatedUser.id}', _avatarFile!.path);
+      }
+
       await _authRepo.updateProfile(updatedUser);
       setState(() => _isSaving = false);
 
@@ -119,9 +202,13 @@ class _EditProfilViewState extends State<EditProfilView> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: isDark ? SanitaColors.darkBackground : SanitaColors.background,
       appBar: AppBar(
+        backgroundColor: isDark ? SanitaColors.darkSurface : SanitaColors.primary,
+        foregroundColor: Colors.white,
         title: const Text('Edit Profil Pengguna', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
@@ -136,58 +223,93 @@ class _EditProfilViewState extends State<EditProfilView> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Avatar with Camera Icon
+                // Avatar with Camera Icon (Tappable)
                 Center(
-                  child: Stack(
-                    children: [
-                      Container(
-                        width: 90,
-                        height: 90,
-                        decoration: BoxDecoration(
-                          color: SanitaColors.primarySurface,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: SanitaColors.primary.withOpacity(0.3), width: 2),
-                        ),
-                        child: const Icon(Icons.person, size: 52, color: SanitaColors.primary),
-                      ),
-                      Positioned(
-                        bottom: 0,
-                        right: 0,
-                        child: Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: const BoxDecoration(
-                            color: SanitaColors.primary,
+                  child: GestureDetector(
+                    onTap: _pickAvatar,
+                    child: Stack(
+                      children: [
+                        Container(
+                          width: 96,
+                          height: 96,
+                          decoration: BoxDecoration(
+                            color: isDark ? SanitaColors.darkCard : SanitaColors.primarySurface,
                             shape: BoxShape.circle,
+                            border: Border.all(
+                              color: isDark ? SanitaColors.darkBorder : SanitaColors.primary.withOpacity(0.3),
+                              width: 2,
+                            ),
                           ),
-                          child: const Icon(Icons.camera_alt, color: Colors.white, size: 16),
+                          child: ClipOval(
+                            child: _avatarFile != null
+                                ? Image.file(_avatarFile!, fit: BoxFit.cover, width: 96, height: 96)
+                                : const Icon(Icons.person, size: 54, color: SanitaColors.primary),
+                          ),
                         ),
-                      ),
-                    ],
+                        Positioned(
+                          bottom: 0,
+                          right: 0,
+                          child: Container(
+                            padding: const EdgeInsets.all(7),
+                            decoration: const BoxDecoration(
+                              color: SanitaColors.primary,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.camera_alt, color: Colors.white, size: 16),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(height: 10),
                 Center(
                   child: Text(
                     '@${widget.currentUser.username}',
-                    style: const TextStyle(fontSize: 13, color: SanitaColors.textMuted, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: isDark ? SanitaColors.darkTextMuted : SanitaColors.textMuted,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
 
                 const SizedBox(height: 26),
 
                 // Nama Lengkap
-                const Text('Nama Lengkap', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: SanitaColors.textDark)),
+                Text(
+                  'Nama Lengkap',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? Colors.white : SanitaColors.textDark,
+                  ),
+                ),
                 const SizedBox(height: 6),
                 TextFormField(
                   controller: _nameCtrl,
-                  style: const TextStyle(color: SanitaColors.textDark, fontWeight: FontWeight.w600, fontSize: 14),
+                  style: TextStyle(
+                    color: isDark ? Colors.white : SanitaColors.textDark,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
                   decoration: InputDecoration(
                     prefixIcon: const Icon(Icons.badge_outlined, size: 20, color: SanitaColors.primary),
                     filled: true,
-                    fillColor: Colors.white,
+                    fillColor: isDark ? SanitaColors.darkCard : Colors.white,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: SanitaColors.border)),
-                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: SanitaColors.border)),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: isDark ? SanitaColors.darkBorder : SanitaColors.border),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: isDark ? SanitaColors.darkBorder : SanitaColors.border),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: SanitaColors.primary, width: 2),
+                    ),
                   ),
                   validator: (val) {
                     if (val == null || val.trim().isEmpty) return 'Nama tidak boleh kosong';
@@ -198,60 +320,124 @@ class _EditProfilViewState extends State<EditProfilView> {
                 const SizedBox(height: 16),
 
                 // Email
-                const Text('Email', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: SanitaColors.textDark)),
+                Text(
+                  'Email',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? Colors.white : SanitaColors.textDark,
+                  ),
+                ),
                 const SizedBox(height: 6),
                 TextFormField(
                   controller: _emailCtrl,
                   keyboardType: TextInputType.emailAddress,
-                  style: const TextStyle(color: SanitaColors.textDark, fontSize: 14),
+                  style: TextStyle(
+                    color: isDark ? Colors.white : SanitaColors.textDark,
+                    fontSize: 14,
+                  ),
                   decoration: InputDecoration(
                     prefixIcon: const Icon(Icons.email_outlined, size: 20, color: SanitaColors.primary),
                     filled: true,
-                    fillColor: Colors.white,
+                    fillColor: isDark ? SanitaColors.darkCard : Colors.white,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: SanitaColors.border)),
-                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: SanitaColors.border)),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: isDark ? SanitaColors.darkBorder : SanitaColors.border),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: isDark ? SanitaColors.darkBorder : SanitaColors.border),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: SanitaColors.primary, width: 2),
+                    ),
                   ),
                 ),
 
                 const SizedBox(height: 16),
 
                 // Nomor Telepon / Kontak
-                const Text('Nomor Telepon / WhatsApp', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: SanitaColors.textDark)),
+                Text(
+                  'Nomor Telepon / WhatsApp',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? Colors.white : SanitaColors.textDark,
+                  ),
+                ),
                 const SizedBox(height: 6),
                 TextFormField(
                   controller: _phoneCtrl,
                   keyboardType: TextInputType.phone,
-                  style: const TextStyle(color: SanitaColors.textDark, fontSize: 14),
+                  style: TextStyle(
+                    color: isDark ? Colors.white : SanitaColors.textDark,
+                    fontSize: 14,
+                  ),
                   decoration: InputDecoration(
                     prefixIcon: const Icon(Icons.phone_outlined, size: 20, color: SanitaColors.primary),
                     filled: true,
-                    fillColor: Colors.white,
+                    fillColor: isDark ? SanitaColors.darkCard : Colors.white,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: SanitaColors.border)),
-                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: SanitaColors.border)),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: isDark ? SanitaColors.darkBorder : SanitaColors.border),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: isDark ? SanitaColors.darkBorder : SanitaColors.border),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: SanitaColors.primary, width: 2),
+                    ),
                   ),
                 ),
 
                 const SizedBox(height: 16),
 
                 // Peran / Jabatan Sanitasi
-                const Text('Peran / Jabatan', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: SanitaColors.textDark)),
+                Text(
+                  'Peran / Jabatan',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? Colors.white : SanitaColors.textDark,
+                  ),
+                ),
                 const SizedBox(height: 6),
                 DropdownButtonFormField<String>(
                   value: _selectedRole,
+                  dropdownColor: isDark ? SanitaColors.darkCard : Colors.white,
                   decoration: InputDecoration(
                     prefixIcon: const Icon(Icons.verified_outlined, size: 20, color: SanitaColors.primary),
                     filled: true,
-                    fillColor: Colors.white,
+                    fillColor: isDark ? SanitaColors.darkCard : Colors.white,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: SanitaColors.border)),
-                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: SanitaColors.border)),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: isDark ? SanitaColors.darkBorder : SanitaColors.border),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: isDark ? SanitaColors.darkBorder : SanitaColors.border),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: SanitaColors.primary, width: 2),
+                    ),
                   ),
                   items: _roleOptions.map((r) {
                     return DropdownMenuItem<String>(
                       value: r,
-                      child: Text(r, style: const TextStyle(fontSize: 13, color: SanitaColors.textDark)),
+                      child: Text(
+                        r,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: isDark ? Colors.white : SanitaColors.textDark,
+                        ),
+                      ),
                     );
                   }).toList(),
                   onChanged: (val) {
@@ -267,9 +453,16 @@ class _EditProfilViewState extends State<EditProfilView> {
                 ElevatedButton.icon(
                   onPressed: _isSaving ? null : _saveProfile,
                   icon: _isSaving
-                      ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      ? const SizedBox(
+                          height: 18,
+                          width: 18,
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                        )
                       : const Icon(Icons.save_outlined, size: 20),
-                  label: const Text('Simpan Perubahan Profil', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                  label: const Text(
+                    'Simpan Perubahan Profil',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                  ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: SanitaColors.primary,
                     foregroundColor: Colors.white,
@@ -285,9 +478,16 @@ class _EditProfilViewState extends State<EditProfilView> {
                   onPressed: () => Navigator.pop(context),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 13),
+                    side: BorderSide(color: isDark ? SanitaColors.darkBorder : SanitaColors.border),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
-                  child: const Text('Batal', style: TextStyle(fontSize: 14, color: SanitaColors.textMuted)),
+                  child: Text(
+                    'Batal',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: isDark ? SanitaColors.darkTextMuted : SanitaColors.textMuted,
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -297,4 +497,3 @@ class _EditProfilViewState extends State<EditProfilView> {
     );
   }
 }
-

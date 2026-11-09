@@ -405,7 +405,7 @@ class _CekSanitasiViewState extends State<CekSanitasiView> {
                               decoration: InputDecoration(
                                 filled: true,
                                 fillColor: isDark ? SanitaColors.darkCard : Colors.white,
-                                hintText: 'Masukkan nama lokasi (bebas)',
+                                hintText: 'Masukkan nama lokasi',
                                 hintStyle: TextStyle(
                                   color: isDark ? SanitaColors.darkTextMuted : Colors.grey.shade400,
                                   fontWeight: FontWeight.normal,
@@ -423,8 +423,6 @@ class _CekSanitasiViewState extends State<CekSanitasiView> {
                             // Tulisan Lokasi Cepat ("Rekomendasi:")
                             Row(
                               children: [
-                                const Icon(Icons.flash_on, size: 14, color: SanitaColors.accentAmber),
-                                const SizedBox(width: 4),
                                 Text(
                                   'Rekomendasi:',
                                   style: TextStyle(
