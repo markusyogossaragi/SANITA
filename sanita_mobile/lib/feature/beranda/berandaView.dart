@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../core/models/models.dart';
+import '../../core/repositories/monitoringRepository.dart';
 import '../../core/theme/theme.dart';
 
 class BerandaView extends StatefulWidget {
@@ -21,6 +23,24 @@ class BerandaView extends StatefulWidget {
 
 class _BerandaViewState extends State<BerandaView> {
   int _currentTipIndex = 0;
+  RekapSanitasiLingkungan? _rekap;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRekap();
+  }
+
+  Future<void> _loadRekap() async {
+    try {
+      final data = await MonitoringRepository().getRekapSanitasiLingkungan();
+      if (mounted) {
+        setState(() {
+          _rekap = data;
+        });
+      }
+    } catch (_) {}
+  }
 
   final List<Map<String, String>> _tipsSanitasi = [
     {
@@ -46,18 +66,12 @@ class _BerandaViewState extends State<BerandaView> {
   ];
 
   Future<void> _handleRefresh() async {
-    await Future.delayed(const Duration(milliseconds: 600));
+    await Future.delayed(const Duration(milliseconds: 400));
+    await _loadRekap();
     if (mounted) {
       setState(() {
         _currentTipIndex = (_currentTipIndex + 1) % _tipsSanitasi.length;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Data sanitasi berhasil diperbarui'),
-          duration: Duration(seconds: 1),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
     }
   }
 
@@ -208,53 +222,60 @@ class _BerandaViewState extends State<BerandaView> {
                       // Indeks Kepatuhan Sanitasi Card
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Container(
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: isDark ? SanitaColors.darkCard : Colors.white,
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: isDark ? SanitaColors.darkBorder : SanitaColors.border),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.02),
-                                blurRadius: 6,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(
-                                  color: SanitaColors.primarySurface,
-                                  borderRadius: BorderRadius.circular(12),
+                        child: InkWell(
+                          onTap: widget.onOpenMonitoring,
+                          borderRadius: BorderRadius.circular(14),
+                          child: Container(
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: isDark ? SanitaColors.darkCard : Colors.white,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: isDark ? SanitaColors.darkBorder : SanitaColors.border),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.02),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 2),
                                 ),
-                                child: const Icon(Icons.health_and_safety, color: SanitaColors.primary, size: 28),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Status Lingkungan Kerja',
-                                      style: TextStyle(fontSize: 11, color: isDark ? SanitaColors.darkTextMuted : SanitaColors.textMuted, fontWeight: FontWeight.w500),
-                                    ),
-                                    const SizedBox(height: 1),
-                                    Text(
-                                      '94% Kepatuhan Sanitasi',
-                                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: isDark ? SanitaColors.primaryLight : SanitaColors.primaryDark),
-                                    ),
-                                    const SizedBox(height: 1),
-                                    Text(
-                                      '6 Indikator Terpantau Memenuhi Kriteria Higiene',
-                                      style: TextStyle(fontSize: 11, color: isDark ? const Color(0xFF4ADE80) : Colors.green.shade700, fontWeight: FontWeight.w600),
-                                    ),
-                                  ],
+                              ],
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: SanitaColors.primarySurface,
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: const Icon(Icons.health_and_safety, color: SanitaColors.primary, size: 28),
                                 ),
-                              ),
-                            ],
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Status Lingkungan Kerja (Keseluruhan)',
+                                        style: TextStyle(fontSize: 11, color: isDark ? SanitaColors.darkTextMuted : SanitaColors.textMuted, fontWeight: FontWeight.w500),
+                                      ),
+                                      const SizedBox(height: 1),
+                                      Text(
+                                        '${(_rekap?.rataRataKepatuhan ?? 86.7).toStringAsFixed(0)}% Kepatuhan Sanitasi',
+                                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: isDark ? SanitaColors.primaryLight : SanitaColors.primaryDark),
+                                      ),
+                                      const SizedBox(height: 1),
+                                      Text(
+                                        _rekap != null
+                                            ? '${_rekap!.totalLokasiTerpantau} Lokasi Terpantau • ${_rekap!.statusKeseluruhan}'
+                                            : 'Perhitungan Terpusat 6 Indikator Higiene',
+                                        style: TextStyle(fontSize: 11, color: isDark ? const Color(0xFF4ADE80) : Colors.green.shade700, fontWeight: FontWeight.w600),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const Icon(Icons.chevron_right, size: 18, color: SanitaColors.textMuted),
+                              ],
+                            ),
                           ),
                         ),
                       ),

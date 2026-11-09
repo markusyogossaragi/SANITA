@@ -52,6 +52,8 @@ class ChecklistModel {
   final String catatanSimulasi;
   final String checksumSHA256;
   final DateTime createdAt;
+  final String inspectorUsername;
+  final Map<String, bool>? kriteriaDetail;
 
   ChecklistModel({
     required this.id,
@@ -65,6 +67,8 @@ class ChecklistModel {
     required this.catatanSimulasi,
     required this.checksumSHA256,
     required this.createdAt,
+    this.inspectorUsername = 'Pengguna',
+    this.kriteriaDetail,
   });
 
   factory ChecklistModel.fromJson(Map<String, dynamic> json) {
@@ -72,6 +76,13 @@ class ChecklistModel {
     List<String> list = [];
     if (rawPoin is List) {
       list = rawPoin.map((e) => e.toString()).toList();
+    }
+
+    Map<String, bool>? parsedKriteria;
+    if (json['kriteria_detail'] is Map) {
+      parsedKriteria = Map<String, bool>.from(
+        (json['kriteria_detail'] as Map).map((k, v) => MapEntry(k.toString(), v == true)),
+      );
     }
 
     return ChecklistModel(
@@ -86,6 +97,8 @@ class ChecklistModel {
       catatanSimulasi: json['catatan_simulasi'] ?? 'Catatan: checklist ini untuk simulasi tugas. Hasilnya bukan sertifikasi atau pemeriksaan resmi.',
       checksumSHA256: json['checksum_sha256'] ?? '',
       createdAt: json['created_at'] != null ? DateTime.tryParse(json['created_at']) ?? DateTime.now() : DateTime.now(),
+      inspectorUsername: json['inspector_username'] ?? 'Pengguna',
+      kriteriaDetail: parsedKriteria,
     );
   }
 
@@ -101,6 +114,8 @@ class ChecklistModel {
     'catatan_simulasi': catatanSimulasi,
     'checksum_sha256': checksumSHA256,
     'created_at': createdAt.toIso8601String(),
+    'inspector_username': inspectorUsername,
+    'kriteria_detail': kriteriaDetail,
   };
 }
 
@@ -115,6 +130,7 @@ class LaporanModel {
   final String reporterName;
   final String createdAt;
   final String integrityHMAC;
+  final String? catatanDisposisi;
 
   LaporanModel({
     required this.id,
@@ -127,7 +143,19 @@ class LaporanModel {
     required this.reporterName,
     required this.createdAt,
     required this.integrityHMAC,
+    this.catatanDisposisi,
   });
+
+  String get reporterUsername {
+    final name = reporterName.trim();
+    if (name.toLowerCase().contains('ribka')) return 'ribka';
+    if (name.toLowerCase() == 'sahabat sanita') return 'sahabat_sanita';
+    if (name.toLowerCase() == 'pengawas kesling') return 'pengawas_k3';
+    if (name.contains(' ')) {
+      return name.toLowerCase().split(' ').first;
+    }
+    return name.isEmpty ? 'pengguna' : name.toLowerCase();
+  }
 
   factory LaporanModel.fromJson(Map<String, dynamic> json) {
     return LaporanModel(
@@ -138,9 +166,10 @@ class LaporanModel {
       fotoUrl: json['foto_url'],
       status: json['status'] ?? 'terkirim',
       urgensi: json['urgensi'] ?? 'Sedang',
-      reporterName: json['reporter_name'] ?? 'Sahabat SANITA',
+      reporterName: json['reporter_name'] ?? 'pengguna',
       createdAt: json['created_at'] ?? DateTime.now().toIso8601String(),
       integrityHMAC: json['integrity_hmac'] ?? '',
+      catatanDisposisi: json['catatan_disposisi'],
     );
   }
 
@@ -155,6 +184,7 @@ class LaporanModel {
     'reporter_name': reporterName,
     'created_at': createdAt,
     'integrity_hmac': integrityHMAC,
+    'catatan_disposisi': catatanDisposisi,
   };
 }
 
@@ -252,4 +282,54 @@ class MonitoringStatsModel {
       integrityValid: json['integrity_valid'] ?? true,
     );
   }
+}
+
+class LokasiHarianStat {
+  final String lokasi;
+  final DateTime tanggal;
+  final int skorTerpenuhi;
+  final int totalKondisi;
+  final double persentase;
+  final String statusKelayakan;
+  final String inspectorUsername;
+  final Map<String, bool> kriteria;
+  final int pendingReportsCount;
+
+  LokasiHarianStat({
+    required this.lokasi,
+    required this.tanggal,
+    required this.skorTerpenuhi,
+    this.totalKondisi = 6,
+    required this.persentase,
+    required this.statusKelayakan,
+    required this.inspectorUsername,
+    required this.kriteria,
+    this.pendingReportsCount = 0,
+  });
+}
+
+class RekapSanitasiLingkungan {
+  final double rataRataKepatuhan;
+  final String statusKeseluruhan;
+  final int totalLokasiTerpantau;
+  final int lokasiMemenuhiSyarat;
+  final int lokasiPerluPerhatian;
+  final Map<String, double> persentaseIndikator;
+  final List<LokasiHarianStat> rincianPerLokasi;
+  final int totalLaporan;
+  final int laporanDiproses;
+  final int laporanSelesai;
+
+  RekapSanitasiLingkungan({
+    required this.rataRataKepatuhan,
+    required this.statusKeseluruhan,
+    required this.totalLokasiTerpantau,
+    required this.lokasiMemenuhiSyarat,
+    required this.lokasiPerluPerhatian,
+    required this.persentaseIndikator,
+    required this.rincianPerLokasi,
+    required this.totalLaporan,
+    required this.laporanDiproses,
+    required this.laporanSelesai,
+  });
 }

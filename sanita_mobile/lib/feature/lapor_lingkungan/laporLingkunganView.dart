@@ -58,13 +58,6 @@ class _LaporLingkunganViewState extends State<LaporLingkunganView> {
     await Future.delayed(const Duration(milliseconds: 500));
     if (mounted) {
       _resetForm();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Form pelaporan disetel ulang'),
-          duration: Duration(seconds: 1),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
     }
   }
 
@@ -160,7 +153,9 @@ class _LaporLingkunganViewState extends State<LaporLingkunganView> {
     });
 
     final currentUser = await SessionService().getUser();
-    final reporterName = currentUser?.fullName ?? 'Sahabat SANITA';
+    final reporterName = (currentUser?.username != null && currentUser!.username.trim().isNotEmpty)
+        ? currentUser.username.trim().toLowerCase()
+        : 'pengguna';
 
     final sanitizedLokasi = InputSanitizer.sanitize(_lokasiController.text.trim());
     final sanitizedKeterangan = InputSanitizer.sanitize(_keteranganController.text.trim());

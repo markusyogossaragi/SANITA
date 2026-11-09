@@ -3,6 +3,7 @@ import 'core/theme/theme.dart';
 import 'core/theme/themeController.dart';
 import 'core/models/models.dart';
 import 'core/services/sessionService.dart';
+import 'core/repositories/laporanRepository.dart';
 import 'feature/beranda/berandaView.dart';
 import 'feature/cek_sanitasi/cekSanitasiView.dart';
 import 'feature/lapor_lingkungan/laporLingkunganView.dart';
@@ -56,7 +57,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   void initState() {
     super.initState();
     _loadCurrentUser();
-    _seedInitialReports();
+    _loadPersistedReports();
   }
 
   void _loadCurrentUser() async {
@@ -68,42 +69,14 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     }
   }
 
-  void _seedInitialReports() {
-    _reports.addAll([
-      LaporanModel(
-        id: 'SNT-2026-0104',
-        jenisMasalah: 'Pengelolaan Sampah',
-        lokasi: 'Kantin Kampus UNPRI Lt. 1',
-        keterangan: 'Tempat sampah organik penuh dan penutup pedal perlu perbaikan.',
-        status: 'selesai',
-        urgensi: 'Sedang',
-        reporterName: 'Ribka Lusiana Harahap',
-        createdAt: DateTime.now().subtract(const Duration(days: 1, hours: 2)).toIso8601String(),
-        integrityHMAC: 'sha256-verified-tamper-proof',
-      ),
-      LaporanModel(
-        id: 'SNT-2026-0105',
-        jenisMasalah: 'Kebersihan Toilet',
-        lokasi: 'Toilet Barat Lantai 2',
-        keterangan: 'Wastafel tersumbat ringan dan sabun cuci tangan cair habis.',
-        status: 'diproses',
-        urgensi: 'Mendesak',
-        reporterName: 'Sahabat SANITA',
-        createdAt: DateTime.now().subtract(const Duration(hours: 4)).toIso8601String(),
-        integrityHMAC: 'sha256-verified-tamper-proof',
-      ),
-      LaporanModel(
-        id: 'SNT-2026-0106',
-        jenisMasalah: 'Sirkulasi / Ventilasi Udara',
-        lokasi: 'Ruang Rapat Utama Lantai 3',
-        keterangan: 'Sirkulasi udara pengap dan kisi exhaust fan perlu dibersihkan dari debu.',
-        status: 'terkirim',
-        urgensi: 'Rendah',
-        reporterName: 'Pengawas Kesling',
-        createdAt: DateTime.now().subtract(const Duration(minutes: 45)).toIso8601String(),
-        integrityHMAC: 'sha256-verified-tamper-proof',
-      ),
-    ]);
+  void _loadPersistedReports() async {
+    final reports = await LaporanRepository().getReports();
+    if (mounted) {
+      setState(() {
+        _reports.clear();
+        _reports.addAll(reports);
+      });
+    }
   }
 
   void _onTabTapped(int index) {
@@ -124,14 +97,15 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     );
   }
 
-  void _addNewReport(LaporanModel newReport) {
+  void _addNewReport(LaporanModel newReport) async {
     setState(() {
       _reports.insert(0, newReport);
       _currentIndex = 3; // Switch to Riwayat Laporan tab
     });
+    await LaporanRepository().saveReports(_reports);
   }
 
-  void _updateReportStatus(String id, String newStatus) {
+  void _updateReportStatus(String id, String newStatus) async {
     setState(() {
       final index = _reports.indexWhere((r) => r.id == id);
       if (index != -1) {
@@ -150,6 +124,24 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         );
       }
     });
+    await LaporanRepository().updateStatus(id, newStatus);
+  }
+
+  void _editReport(LaporanModel updatedReport) async {
+    setState(() {
+      final index = _reports.indexWhere((r) => r.id == updatedReport.id);
+      if (index != -1) {
+        _reports[index] = updatedReport;
+      }
+    });
+    await LaporanRepository().updateReport(updatedReport);
+  }
+
+  void _deleteReport(String id) async {
+    setState(() {
+      _reports.removeWhere((r) => r.id == id);
+    });
+    await LaporanRepository().deleteReport(id);
   }
 
   @override
@@ -177,6 +169,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         onBackToHome: () => _onTabTapped(0),
         reports: _reports,
         onUpdateReportStatus: _updateReportStatus,
+        onEditReport: _editReport,
+        onDeleteReport: _deleteReport,
       ),
     ];
 

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/theme.dart';
 import '../../core/datasources/apiDataSource.dart';
+import '../../core/services/sessionService.dart';
+import '../../core/repositories/sanitasiRepository.dart';
 
 class CekSanitasiView extends StatefulWidget {
   final VoidCallback onBackToHome;
@@ -67,13 +69,6 @@ class _CekSanitasiViewState extends State<CekSanitasiView> {
         _showResult = false;
         _evalResult = null;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Form inspeksi sanitasi diperbarui'),
-          duration: Duration(seconds: 1),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
     }
   }
 
@@ -157,21 +152,33 @@ class _CekSanitasiViewState extends State<CekSanitasiView> {
     });
 
     final targetLokasi = _lokasiController.text.trim().isEmpty ? 'Area Kerja (Belum diisi)' : _lokasiController.text.trim();
-
-    final payload = {
-      'lokasi': targetLokasi,
-      'air_bersih': _airBersih == true,
-      'toilet_bersih': _toiletBersih == true,
-      'tempat_sampah': _tempatSampah == true,
-      'ventilasi_udara': _ventilasiUdara == true,
-      'bebas_genangan': _bebasGenangan == true,
-      'kebersihan_area': _kebersihanArea == true,
-    };
+    final currentUser = await SessionService().getUser();
+    final username = currentUser?.username ?? 'Pengguna';
 
     try {
-      final res = await ApiDataSource().post('/sanitasi/checklist', payload);
+      final savedModel = await SanitasiRepository().submitChecklist(
+        lokasi: targetLokasi,
+        airBersih: _airBersih == true,
+        toiletBersih: _toiletBersih == true,
+        tempatSampah: _tempatSampah == true,
+        ventilasiUdara: _ventilasiUdara == true,
+        bebasGenangan: _bebasGenangan == true,
+        kebersihanArea: _kebersihanArea == true,
+        inspectorUsername: username,
+      );
+
       setState(() {
-        _evalResult = res['data'];
+        _evalResult = {
+          'id': savedModel.id,
+          'skor_terpenuhi': savedModel.skorTerpenuhi,
+          'total_kondisi': 6,
+          'persentase': savedModel.persentase.round(),
+          'status_hasil': savedModel.statusHasil,
+          'saran_tindak_lanjut': savedModel.saranTindak,
+          'catatan_simulasi': savedModel.catatanSimulasi,
+          'created_at': savedModel.createdAt.toIso8601String(),
+          'inspector': username,
+        };
         _showResult = true;
         _isLoading = false;
       });
@@ -182,11 +189,13 @@ class _CekSanitasiViewState extends State<CekSanitasiView> {
           'skor_terpenuhi': count,
           'total_kondisi': 6,
           'persentase': (count / 6.0 * 100).round(),
-          'status_hasil': count == 6 ? 'Semua kondisi checklist terpenuhi' : 'Pemeriksaan Selesai Dievaluasi',
+          'status_hasil': count == 6 ? 'Memenuhi Syarat (MS 100%)' : 'Pemeriksaan Selesai Dievaluasi',
           'saran_tindak_lanjut': count == 6
               ? 'Checklist terpenuhi: 6/6. Pertahankan kondisi dan lakukan pemantauan rutin.'
               : 'Checklist terpenuhi: $count/6. Perbaiki butir sanitasi yang belum memenuhi kriteria.',
           'catatan_simulasi': 'Catatan: checklist ini untuk simulasi tugas. Hasilnya bukan sertifikasi atau pemeriksaan resmi.',
+          'created_at': DateTime.now().toIso8601String(),
+          'inspector': username,
         };
         _showResult = true;
         _isLoading = false;

@@ -15,12 +15,16 @@ class ProfilView extends StatefulWidget {
   final VoidCallback onBackToHome;
   final List<LaporanModel>? reports;
   final Function(String id, String newStatus)? onUpdateReportStatus;
+  final Function(LaporanModel updatedReport)? onEditReport;
+  final Function(String id)? onDeleteReport;
 
   const ProfilView({
     super.key,
     required this.onBackToHome,
     this.reports,
     this.onUpdateReportStatus,
+    this.onEditReport,
+    this.onDeleteReport,
   });
 
   @override
@@ -73,15 +77,6 @@ class _ProfilViewState extends State<ProfilView> {
   Future<void> _handleRefresh() async {
     await Future.delayed(const Duration(milliseconds: 500));
     _loadUserAndPreferences();
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Profil pengguna diperbarui'),
-          duration: Duration(seconds: 1),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    }
   }
 
   void _pickAvatar() {
@@ -120,11 +115,55 @@ class _ProfilViewState extends State<ProfilView> {
                   _runAvatarPicker(ImageSource.gallery);
                 },
               ),
+              if (_avatarFile != null || (_currentUser?.avatarUrl != null && _currentUser!.avatarUrl!.isNotEmpty)) ...[
+                const Divider(),
+                ListTile(
+                  leading: const CircleAvatar(
+                    backgroundColor: Color(0xFFFFEBEE),
+                    child: Icon(Icons.delete_outline, color: SanitaColors.alertRed),
+                  ),
+                  title: const Text('Hapus Foto Profil', style: TextStyle(fontWeight: FontWeight.w600, color: SanitaColors.alertRed)),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _removeAvatar();
+                  },
+                ),
+              ],
             ],
           ),
         ),
       ),
     );
+  }
+
+  void _removeAvatar() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (_currentUser != null) {
+      await prefs.remove('sanita_avatar_${_currentUser!.id}');
+      final updatedUser = UserModel(
+        id: _currentUser!.id,
+        username: _currentUser!.username,
+        fullName: _currentUser!.fullName,
+        role: _currentUser!.role,
+        email: _currentUser!.email,
+        phone: _currentUser!.phone,
+        avatarUrl: null,
+      );
+      await AuthRepository().updateProfile(updatedUser);
+      if (mounted) {
+        setState(() {
+          _avatarFile = null;
+          _currentUser = updatedUser;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Foto profil berhasil dihapus.'),
+            backgroundColor: SanitaColors.primary,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
   }
 
   void _runAvatarPicker(ImageSource source) async {
@@ -211,6 +250,8 @@ class _ProfilViewState extends State<ProfilView> {
           onBack: () => Navigator.pop(context),
           reports: widget.reports ?? [],
           onUpdateStatus: widget.onUpdateReportStatus,
+          onEditReport: widget.onEditReport,
+          onDeleteReport: widget.onDeleteReport,
         ),
       ),
     );
@@ -609,7 +650,7 @@ class _ProfilViewState extends State<ProfilView> {
                                   // Switch Pengingat Cek Berkala (DEFAULT = MATI / FALSE)
                                   SwitchListTile(
                                     title: const Text('Pengingat Cek Berkala', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-                                    subtitle: const Text('Notifikasi jadwal inspeksi kebersihan mingguan (Default: Mati)', style: TextStyle(fontSize: 11, color: SanitaColors.textMuted)),
+                                    subtitle: const Text('Notifikasi jadwal inspeksi kebersihan mingguan', style: TextStyle(fontSize: 11, color: SanitaColors.textMuted)),
                                     value: _notifReminder,
                                     activeColor: SanitaColors.primary,
                                     onChanged: _updateReminder,
@@ -619,7 +660,7 @@ class _ProfilViewState extends State<ProfilView> {
                                   // Switch Mode Hemat Data (DEFAULT = NYALA / TRUE)
                                   SwitchListTile(
                                     title: const Text('Mode Hemat Data', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-                                    subtitle: const Text('Kompresi gambar bukti foto laporan (Default: Nyala)', style: TextStyle(fontSize: 11, color: SanitaColors.textMuted)),
+                                    subtitle: const Text('Kompresi gambar bukti foto laporan', style: TextStyle(fontSize: 11, color: SanitaColors.textMuted)),
                                     value: _dataSaving,
                                     activeColor: SanitaColors.primary,
                                     onChanged: _updateDataSaving,
@@ -634,7 +675,7 @@ class _ProfilViewState extends State<ProfilView> {
                                       return SwitchListTile(
                                         title: const Text('Mode Gelap (Dark Theme)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
                                         subtitle: Text(
-                                          isDarkModeActive ? 'Tampilan gelap nyaman di mata (Aktif)' : 'Tampilan terang emerald klasik (Mati)',
+                                          isDarkModeActive ? 'Tampilan gelap nyaman di mata' : 'Tampilan gelap nyaman di mata',
                                           style: const TextStyle(fontSize: 11, color: SanitaColors.textMuted),
                                         ),
                                         secondary: Icon(

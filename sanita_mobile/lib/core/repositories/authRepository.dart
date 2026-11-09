@@ -143,25 +143,33 @@ class AuthRepository {
     return user;
   }
 
-  /// Update profil pengguna (nama, email, no HP, role, foto profil)
+  /// Update profil pengguna (nama, username/nickname, email, no HP, role, foto profil)
   Future<UserModel> updateProfile(UserModel updatedUser) async {
     // 1. Update active session
     await _session.updateUser(updatedUser);
 
     // 2. Update persistent account storage
     final accounts = await _getStoredAccounts();
+
+    // Pastikan username baru tidak bentrok dengan akun lain
+    final usernameConflict = accounts.any((a) =>
+        (a['id'] ?? '') != updatedUser.id &&
+        (a['username'] ?? '').toString().toLowerCase() == updatedUser.username.toLowerCase());
+    if (usernameConflict) {
+      throw Exception('Nickname/Username sudah digunakan oleh akun lain.');
+    }
+
     final index = accounts.indexWhere((a) =>
         (a['id'] ?? '') == updatedUser.id ||
         (a['username'] ?? '').toString().toLowerCase() == updatedUser.username.toLowerCase());
 
     if (index != -1) {
+      accounts[index]['username'] = updatedUser.username;
       accounts[index]['full_name'] = updatedUser.fullName;
       accounts[index]['email'] = updatedUser.email;
       accounts[index]['phone'] = updatedUser.phone;
       accounts[index]['role'] = updatedUser.role;
-      if (updatedUser.avatarUrl != null) {
-        accounts[index]['avatar_url'] = updatedUser.avatarUrl;
-      }
+      accounts[index]['avatar_url'] = updatedUser.avatarUrl;
       await _saveStoredAccounts(accounts);
     }
 
@@ -177,6 +185,47 @@ class AuthRepository {
   Future<List<Map<String, dynamic>>> getAllUsers() async {
     final accounts = await _getStoredAccounts();
     return accounts;
+  }
+
+  /// Update akun pengguna oleh Admin
+  Future<bool> updateUserByAdmin(Map<String, dynamic> userMap) async {
+    final accounts = await _getStoredAccounts();
+    final id = userMap['id'] ?? '';
+    final username = (userMap['username'] ?? '').toString().toLowerCase();
+
+    final idx = accounts.indexWhere((a) =>
+        (a['id'] ?? '') == id ||
+        (a['username'] ?? '').toString().toLowerCase() == username);
+
+    if (idx != -1) {
+      accounts[idx]['full_name'] = userMap['full_name'];
+      accounts[idx]['role'] = userMap['role'];
+      accounts[idx]['email'] = userMap['email'];
+      accounts[idx]['phone'] = userMap['phone'];
+      await _saveStoredAccounts(accounts);
+      return true;
+    }
+    return false;
+  }
+
+  /// Hapus akun pengguna oleh Admin (Admin Ribka tidak dapat dihapus)
+  Future<bool> deleteUser(String idOrUsername) async {
+    final query = idOrUsername.trim().toLowerCase();
+    if (query == 'ribka' || query == 'usr-admin-ribka-243301631022') {
+      return false; // Akun admin utama diproteksi
+    }
+
+    final accounts = await _getStoredAccounts();
+    final initialCount = accounts.length;
+    accounts.removeWhere((a) =>
+        (a['id'] ?? '').toString().toLowerCase() == query ||
+        (a['username'] ?? '').toString().toLowerCase() == query);
+
+    if (accounts.length < initialCount) {
+      await _saveStoredAccounts(accounts);
+      return true;
+    }
+    return false;
   }
 
   /// Get list of accounts stored in local DB

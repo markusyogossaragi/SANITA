@@ -18,54 +18,80 @@ class EditProfilView extends StatefulWidget {
 class _EditProfilViewState extends State<EditProfilView> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameCtrl;
+  late TextEditingController _usernameCtrl;
   late TextEditingController _emailCtrl;
   late TextEditingController _phoneCtrl;
   late String _selectedRole;
-  File? _avatarFile;
+  late List<String> _availableRoles;
+  late bool _isRibkaAdmin;
 
+  File? _avatarFile;
+  bool _isAvatarRemoved = false;
   bool _isSaving = false;
   final _authRepo = AuthRepository();
-
-  final List<String> _roleOptions = [
-    'Admin',
-    'Inspektur Kesling',
-    'Inspektur Sanitasi & K3',
-    'Koordinator Sanitasi',
-    'Staf Kebersihan & Sarana',
-    'Dosen Kesehatan Lingkungan',
-    'Mahasiswa Kesling',
-  ];
 
   @override
   void initState() {
     super.initState();
     _nameCtrl = TextEditingController(text: widget.currentUser.fullName);
+    _usernameCtrl = TextEditingController(text: widget.currentUser.username);
     _emailCtrl = TextEditingController(text: widget.currentUser.email ?? '');
     _phoneCtrl = TextEditingController(text: widget.currentUser.phone ?? '');
+
+    // Cek apakah akun adalah Ribka (Admin Utama)
+    final usernameLower = widget.currentUser.username.toLowerCase();
+    final nameLower = widget.currentUser.fullName.toLowerCase();
+    _isRibkaAdmin = usernameLower == 'ribka' || nameLower.contains('ribka') || widget.currentUser.id.contains('ribka');
+
+    // Role options: Admin HANYA dapat diatur/dipilih oleh Ribka. Pengguna lain bebas memilih peran sanitasi lainnya.
+    if (_isRibkaAdmin) {
+      _availableRoles = [
+        'Admin',
+        'Inspektur Kesling',
+        'Inspektur Sanitasi & K3',
+        'Koordinator Sanitasi',
+        'Staf Kebersihan & Sarana',
+        'Dosen Kesehatan Lingkungan',
+        'Mahasiswa Kesling',
+        'Pengguna Terdaftar',
+      ];
+    } else {
+      _availableRoles = [
+        'Inspektur Kesling',
+        'Inspektur Sanitasi & K3',
+        'Koordinator Sanitasi',
+        'Staf Kebersihan & Sarana',
+        'Dosen Kesehatan Lingkungan',
+        'Mahasiswa Kesling',
+        'Pengguna Terdaftar',
+      ];
+    }
+
+    if (_availableRoles.contains(widget.currentUser.role)) {
+      _selectedRole = widget.currentUser.role;
+    } else {
+      _selectedRole = _availableRoles.first;
+    }
 
     if (widget.currentUser.avatarUrl != null &&
         widget.currentUser.avatarUrl!.isNotEmpty &&
         File(widget.currentUser.avatarUrl!).existsSync()) {
       _avatarFile = File(widget.currentUser.avatarUrl!);
     }
-
-    // Select role or fallback to first option
-    if (_roleOptions.contains(widget.currentUser.role)) {
-      _selectedRole = widget.currentUser.role;
-    } else {
-      _selectedRole = _roleOptions.first;
-    }
   }
 
   @override
   void dispose() {
     _nameCtrl.dispose();
+    _usernameCtrl.dispose();
     _emailCtrl.dispose();
     _phoneCtrl.dispose();
     super.dispose();
   }
 
   void _pickAvatar() {
+    final hasPhoto = !_isAvatarRemoved && (_avatarFile != null || (widget.currentUser.avatarUrl != null && widget.currentUser.avatarUrl!.isNotEmpty));
+
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -81,7 +107,7 @@ class _EditProfilViewState extends State<EditProfilView> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  'Ubah Foto Profil',
+                  'Kelola Foto Profil',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
@@ -111,6 +137,30 @@ class _EditProfilViewState extends State<EditProfilView> {
                     _selectImage(ImageSource.gallery);
                   },
                 ),
+                if (hasPhoto) ...[
+                  const Divider(),
+                  ListTile(
+                    leading: const Icon(Icons.delete_outline, color: SanitaColors.alertRed),
+                    title: const Text(
+                      'Hapus Foto Profil',
+                      style: TextStyle(color: SanitaColors.alertRed, fontWeight: FontWeight.w600),
+                    ),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      setState(() {
+                        _avatarFile = null;
+                        _isAvatarRemoved = true;
+                      });
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Foto profil ditandai untuk dihapus saat disimpan.'),
+                          behavior: SnackBarBehavior.floating,
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                    },
+                  ),
+                ],
               ],
             ),
           ),
@@ -126,6 +176,7 @@ class _EditProfilViewState extends State<EditProfilView> {
       if (picked != null) {
         setState(() {
           _avatarFile = File(picked.path);
+          _isAvatarRemoved = false;
         });
       }
     } catch (e) {
@@ -137,6 +188,7 @@ class _EditProfilViewState extends State<EditProfilView> {
     if (!_formKey.currentState!.validate()) return;
 
     final newName = _nameCtrl.text.trim();
+    final newUsername = _usernameCtrl.text.trim().toLowerCase();
     final newEmail = _emailCtrl.text.trim();
     final newPhone = _phoneCtrl.text.trim();
 
@@ -144,22 +196,37 @@ class _EditProfilViewState extends State<EditProfilView> {
       _showWarning('Nama lengkap wajib diisi.');
       return;
     }
+    if (newUsername.isEmpty) {
+      _showWarning('Nickname/Username wajib diisi.');
+      return;
+    }
 
     setState(() => _isSaving = true);
 
+    String? finalAvatarUrl;
+    if (_isAvatarRemoved) {
+      finalAvatarUrl = null;
+    } else if (_avatarFile != null) {
+      finalAvatarUrl = _avatarFile!.path;
+    } else {
+      finalAvatarUrl = widget.currentUser.avatarUrl;
+    }
+
     final updatedUser = UserModel(
       id: widget.currentUser.id,
-      username: widget.currentUser.username,
+      username: newUsername,
       fullName: newName,
       role: _selectedRole,
       email: newEmail.isNotEmpty ? newEmail : widget.currentUser.email,
       phone: newPhone.isNotEmpty ? newPhone : widget.currentUser.phone,
-      avatarUrl: _avatarFile != null ? _avatarFile!.path : widget.currentUser.avatarUrl,
+      avatarUrl: finalAvatarUrl,
     );
 
     try {
-      if (_avatarFile != null) {
-        final prefs = await SharedPreferences.getInstance();
+      final prefs = await SharedPreferences.getInstance();
+      if (_isAvatarRemoved) {
+        await prefs.remove('sanita_avatar_${updatedUser.id}');
+      } else if (_avatarFile != null) {
         await prefs.setString('sanita_avatar_${updatedUser.id}', _avatarFile!.path);
       }
 
@@ -176,17 +243,17 @@ class _EditProfilViewState extends State<EditProfilView> {
             children: [
               Icon(Icons.check_circle, color: Colors.white, size: 20),
               SizedBox(width: 8),
-              Text('Profil berhasil diperbarui!'),
+              Text('Profil & Nickname berhasil diperbarui!'),
             ],
           ),
         ),
       );
 
-      // Return updated user to ProfilView
+      // Kembalikan objek user yang diperbarui ke ProfilView
       Navigator.pop(context, updatedUser);
     } catch (e) {
       setState(() => _isSaving = false);
-      _showWarning('Gagal menyimpan profil: ${e.toString()}');
+      _showWarning(e.toString().replaceAll('Exception: ', ''));
     }
   }
 
@@ -203,6 +270,14 @@ class _EditProfilViewState extends State<EditProfilView> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final bool hasValidAvatar = !_isAvatarRemoved && (
+      _avatarFile != null || (
+        widget.currentUser.avatarUrl != null &&
+        widget.currentUser.avatarUrl!.isNotEmpty &&
+        File(widget.currentUser.avatarUrl!).existsSync()
+      )
+    );
 
     return Scaffold(
       backgroundColor: isDark ? SanitaColors.darkBackground : SanitaColors.background,
@@ -223,7 +298,7 @@ class _EditProfilViewState extends State<EditProfilView> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Avatar with Camera Icon (Tappable)
+                // Avatar with Camera Icon (Tappable: Edit / Hapus)
                 Center(
                   child: GestureDetector(
                     onTap: _pickAvatar,
@@ -241,8 +316,10 @@ class _EditProfilViewState extends State<EditProfilView> {
                             ),
                           ),
                           child: ClipOval(
-                            child: _avatarFile != null
-                                ? Image.file(_avatarFile!, fit: BoxFit.cover, width: 96, height: 96)
+                            child: hasValidAvatar
+                                ? (_avatarFile != null
+                                    ? Image.file(_avatarFile!, fit: BoxFit.cover, width: 96, height: 96)
+                                    : Image.file(File(widget.currentUser.avatarUrl!), fit: BoxFit.cover, width: 96, height: 96))
                                 : const Icon(Icons.person, size: 54, color: SanitaColors.primary),
                           ),
                         ),
@@ -262,21 +339,67 @@ class _EditProfilViewState extends State<EditProfilView> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 8),
                 Center(
                   child: Text(
-                    '@${widget.currentUser.username}',
+                    hasValidAvatar ? 'Ketuk foto untuk ganti atau hapus' : 'Ketuk untuk menambahkan foto profil',
                     style: TextStyle(
-                      fontSize: 13,
+                      fontSize: 11,
                       color: isDark ? SanitaColors.darkTextMuted : SanitaColors.textMuted,
-                      fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
 
-                const SizedBox(height: 26),
+                const SizedBox(height: 24),
 
-                // Nama Lengkap
+                // 1. Username
+                Text(
+                  'Username',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? Colors.white : SanitaColors.textDark,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                TextFormField(
+                  controller: _usernameCtrl,
+                  style: TextStyle(
+                    color: isDark ? Colors.white : SanitaColors.textDark,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
+                  decoration: InputDecoration(
+                    prefixIcon: const Icon(Icons.alternate_email, size: 20, color: SanitaColors.primary),
+                    hintText: 'Masukkan username',
+                    hintStyle: TextStyle(fontSize: 13, color: isDark ? SanitaColors.darkTextMuted : Colors.grey.shade400),
+                    filled: true,
+                    fillColor: isDark ? SanitaColors.darkCard : Colors.white,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: isDark ? SanitaColors.darkBorder : SanitaColors.border),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: isDark ? SanitaColors.darkBorder : SanitaColors.border),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: SanitaColors.primary, width: 2),
+                    ),
+                  ),
+                  validator: (val) {
+                    if (val == null || val.trim().isEmpty) return 'Username tidak boleh kosong';
+                    if (val.trim().length < 3) return 'Minimal 3 karakter';
+                    if (val.trim().contains(' ')) return 'Username tidak boleh menggunakan spasi';
+                    return null;
+                  },
+                ),
+
+                const SizedBox(height: 16),
+
+                // 2. Nama Lengkap
                 Text(
                   'Nama Lengkap',
                   style: TextStyle(
@@ -319,7 +442,7 @@ class _EditProfilViewState extends State<EditProfilView> {
 
                 const SizedBox(height: 16),
 
-                // Email
+                // 3. Email
                 Text(
                   'Email',
                   style: TextStyle(
@@ -358,7 +481,7 @@ class _EditProfilViewState extends State<EditProfilView> {
 
                 const SizedBox(height: 16),
 
-                // Nomor Telepon / Kontak
+                // 4. Nomor Telepon / Kontak
                 Text(
                   'Nomor Telepon / WhatsApp',
                   style: TextStyle(
@@ -397,14 +520,25 @@ class _EditProfilViewState extends State<EditProfilView> {
 
                 const SizedBox(height: 16),
 
-                // Peran / Jabatan Sanitasi
-                Text(
-                  'Peran / Jabatan',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: isDark ? Colors.white : SanitaColors.textDark,
-                  ),
+                // 5. Peran / Jabatan Sanitasi
+                Row(
+                  children: [
+                    Text(
+                      'Peran / Jabatan',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? Colors.white : SanitaColors.textDark,
+                      ),
+                    ),
+                    if (!_isRibkaAdmin) ...[
+                      const SizedBox(width: 6),
+                      Text(
+                        '(Pilih peran Anda)',
+                        style: TextStyle(fontSize: 11, color: isDark ? SanitaColors.darkTextMuted : SanitaColors.textMuted),
+                      ),
+                    ],
+                  ],
                 ),
                 const SizedBox(height: 6),
                 DropdownButtonFormField<String>(
@@ -428,7 +562,7 @@ class _EditProfilViewState extends State<EditProfilView> {
                       borderSide: const BorderSide(color: SanitaColors.primary, width: 2),
                     ),
                   ),
-                  items: _roleOptions.map((r) {
+                  items: _availableRoles.map((r) {
                     return DropdownMenuItem<String>(
                       value: r,
                       child: Text(

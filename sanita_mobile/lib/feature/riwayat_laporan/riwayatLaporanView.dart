@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/theme.dart';
 import '../../core/models/models.dart';
 import '../../core/utils/dateFormatter.dart';
+import '../../core/repositories/laporanRepository.dart';
 
 class RiwayatLaporanView extends StatefulWidget {
   final VoidCallback onBackToHome;
@@ -25,6 +26,12 @@ class _RiwayatLaporanViewState extends State<RiwayatLaporanView> {
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
 
+  @override
+  void didUpdateWidget(covariant RiwayatLaporanView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    setState(() {});
+  }
+
   List<LaporanModel> get _filteredReports {
     return widget.reports.where((r) {
       final matchesFilter = _selectedFilter == 'Semua' || r.status.toLowerCase() == _selectedFilter.toLowerCase();
@@ -32,25 +39,21 @@ class _RiwayatLaporanViewState extends State<RiwayatLaporanView> {
           r.jenisMasalah.toLowerCase().contains(_searchQuery.toLowerCase()) ||
           r.lokasi.toLowerCase().contains(_searchQuery.toLowerCase()) ||
           r.id.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+          r.reporterUsername.toLowerCase().contains(_searchQuery.toLowerCase()) ||
           r.keterangan.toLowerCase().contains(_searchQuery.toLowerCase());
       return matchesFilter && matchesSearch;
     }).toList();
   }
 
   Future<void> _handleRefresh() async {
-    await Future.delayed(const Duration(milliseconds: 500));
+    final fresh = await LaporanRepository().getReports();
     if (mounted) {
       setState(() {
+        widget.reports.clear();
+        widget.reports.addAll(fresh);
         _searchQuery = '';
         _searchController.clear();
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Daftar riwayat laporan diperbarui'),
-          duration: Duration(seconds: 1),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
     }
   }
 
@@ -71,175 +74,232 @@ class _RiwayatLaporanViewState extends State<RiwayatLaporanView> {
 
   void _showReportDetail(LaporanModel report) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final currentStatus = report.status;
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: isDark ? SanitaColors.darkCard : Colors.white,
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(24),
-            topRight: Radius.circular(24),
-          ),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: isDark ? SanitaColors.darkBorder : Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(2),
-                ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (modalContext, setModalState) {
+          return Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: isDark ? SanitaColors.darkCard : Colors.white,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(24),
+                topRight: Radius.circular(24),
               ),
             ),
-            const SizedBox(height: 18),
-
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: isDark ? SanitaColors.darkBorder : Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      report.id,
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: isDark ? SanitaColors.primaryLight : SanitaColors.primary,
+                      ),
+                    ),
+                    _buildStatusBadge(currentStatus),
+                  ],
+                ),
+                const SizedBox(height: 12),
+
                 Text(
-                  report.id,
+                  report.jenisMasalah,
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                    color: isDark ? SanitaColors.primaryLight : SanitaColors.primary,
+                    fontSize: 18,
+                    color: isDark ? Colors.white : SanitaColors.textDark,
                   ),
                 ),
-                _buildStatusBadge(report.status),
-              ],
-            ),
-            const SizedBox(height: 12),
+                const SizedBox(height: 4),
 
-            Text(
-              report.jenisMasalah,
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
-                color: isDark ? Colors.white : SanitaColors.textDark,
-              ),
-            ),
-            const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Icon(Icons.person_outline, size: 15, color: isDark ? SanitaColors.primaryLight : SanitaColors.primary),
+                    const SizedBox(width: 4),
+                    Text(
+                      '@${report.reporterUsername}',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? SanitaColors.primaryLight : SanitaColors.primary,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text('•', style: TextStyle(color: isDark ? SanitaColors.darkTextMuted : SanitaColors.textMuted, fontSize: 12)),
+                    const SizedBox(width: 8),
+                    Icon(Icons.location_on, size: 15, color: isDark ? SanitaColors.primaryLight : SanitaColors.primary),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        report.lokasi,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: isDark ? Colors.white70 : SanitaColors.textDark,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Icon(Icons.access_time, size: 14, color: SanitaColors.textMuted),
+                    const SizedBox(width: 4),
+                    Text(_formatRelativeTime(report.createdAt), style: const TextStyle(fontSize: 12, color: SanitaColors.textMuted)),
+                  ],
+                ),
+                const SizedBox(height: 14),
 
-            Row(
-              children: [
-                Icon(Icons.location_on, size: 15, color: isDark ? SanitaColors.primaryLight : SanitaColors.primary),
-                const SizedBox(width: 4),
                 Text(
-                  report.lokasi,
+                  'Deskripsi Kondisi:',
                   style: TextStyle(
+                    fontWeight: FontWeight.w600,
                     fontSize: 13,
-                    color: isDark ? Colors.white70 : SanitaColors.textDark,
-                    fontWeight: FontWeight.w500,
+                    color: isDark ? Colors.white : SanitaColors.textDark,
                   ),
                 ),
-                const SizedBox(width: 12),
-                const Icon(Icons.access_time, size: 14, color: SanitaColors.textMuted),
-                const SizedBox(width: 4),
-                Text(_formatRelativeTime(report.createdAt), style: const TextStyle(fontSize: 12, color: SanitaColors.textMuted)),
+                const SizedBox(height: 4),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: isDark ? SanitaColors.darkSurface : SanitaColors.background,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: isDark ? SanitaColors.darkBorder : SanitaColors.border),
+                  ),
+                  child: Text(
+                    report.keterangan,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: isDark ? SanitaColors.darkText : SanitaColors.textDark,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+                if (report.catatanDisposisi != null && report.catatanDisposisi!.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    'Instruksi Disposisi Admin:',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                      color: isDark ? Colors.white : SanitaColors.textDark,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: isDark ? SanitaColors.darkSurface : const Color(0xFFE8F5E9),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: SanitaColors.primary.withOpacity(0.5)),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.rate_review, size: 16, color: SanitaColors.primary),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            report.catatanDisposisi!,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: isDark ? Colors.white : SanitaColors.primaryDark,
+                              height: 1.3,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                if (report.fotoUrl != null && report.fotoUrl!.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    'Bukti Foto:',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                      color: isDark ? Colors.white : SanitaColors.textDark,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: report.fotoUrl!.startsWith('assets/')
+                        ? Image.asset(report.fotoUrl!, height: 160, width: double.infinity, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.image))
+                        : Image.file(File(report.fotoUrl!), height: 160, width: double.infinity, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.broken_image)),
+                  ),
+                ],
+                const SizedBox(height: 18),
+
+                // Stepper Pelacakan Real-Time
+                Text(
+                  'Tahapan Tindak Lanjut:',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                    color: isDark ? Colors.white : SanitaColors.textDark,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                _buildTimelineStep(1, 'Laporan Masuk', 'Tercatat di sistem monitoring SANITA', true, isDark),
+                _buildTimelineStep(2, 'Verifikasi Lapangan', 'Petugas kesling memeriksa titik lokasi', currentStatus.toLowerCase() != 'terkirim', isDark),
+                _buildTimelineStep(3, 'Tindakan Penanganan', 'Pembersihan / perbaikan sarana sedang berjalan', currentStatus.toLowerCase() == 'diproses' || currentStatus.toLowerCase() == 'selesai', isDark),
+                _buildTimelineStep(4, 'Selesai & Divalidasi', 'Kondisi sanitasi kembali memenuhi standar', currentStatus.toLowerCase() == 'selesai', isDark),
+
+                const SizedBox(height: 18),
+
+                // Info Status Pelacakan (Admin Only Management)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: isDark ? SanitaColors.darkSurface : const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: isDark ? SanitaColors.darkBorder : const Color(0xFFCBD5E1)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.shield_outlined, size: 18, color: isDark ? SanitaColors.primaryLight : SanitaColors.primaryDark),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Pembaruan status & disposisi penanganan ditangani langsung oleh Administrator Sanitasi.',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: isDark ? SanitaColors.darkTextMuted : const Color(0xFF475569),
+                            height: 1.3,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
-            const SizedBox(height: 14),
-
-            Text(
-              'Deskripsi Kondisi:',
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 13,
-                color: isDark ? Colors.white : SanitaColors.textDark,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: isDark ? SanitaColors.darkSurface : SanitaColors.background,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: isDark ? SanitaColors.darkBorder : SanitaColors.border),
-              ),
-              child: Text(
-                report.keterangan,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: isDark ? SanitaColors.darkText : SanitaColors.textDark,
-                  height: 1.4,
-                ),
-              ),
-            ),
-            if (report.fotoUrl != null && report.fotoUrl!.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Text(
-                'Bukti Foto:',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13,
-                  color: isDark ? Colors.white : SanitaColors.textDark,
-                ),
-              ),
-              const SizedBox(height: 6),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: report.fotoUrl!.startsWith('assets/')
-                    ? Image.asset(report.fotoUrl!, height: 160, width: double.infinity, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.image))
-                    : Image.file(File(report.fotoUrl!), height: 160, width: double.infinity, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.broken_image)),
-              ),
-            ],
-            const SizedBox(height: 18),
-
-            // Stepper Pelacakan
-            Text(
-              'Tahapan Tindak Lanjut:',
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 13,
-                color: isDark ? Colors.white : SanitaColors.textDark,
-              ),
-            ),
-            const SizedBox(height: 10),
-            _buildTimelineStep(1, 'Laporan Masuk', 'Tercatat di sistem monitoring SANITA', true, isDark),
-            _buildTimelineStep(2, 'Verifikasi Lapangan', 'Petugas kesling memeriksa titik lokasi', report.status != 'terkirim', isDark),
-            _buildTimelineStep(3, 'Tindakan Penanganan', 'Pembersihan / perbaikan sarana sedang berjalan', report.status == 'diproses' || report.status == 'selesai', isDark),
-            _buildTimelineStep(4, 'Selesai & Divalidasi', 'Kondisi sanitasi kembali memenuhi standar', report.status == 'selesai', isDark),
-
-            const SizedBox(height: 20),
-
-            // Demo status toggle
-            if (widget.onUpdateStatus != null) ...[
-              Row(
-                children: [
-                  if (report.status != 'diproses')
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () {
-                          widget.onUpdateStatus!(report.id, 'diproses');
-                          Navigator.pop(ctx);
-                        },
-                        child: const Text('Tandai Diproses', style: TextStyle(fontSize: 12)),
-                      ),
-                    ),
-                  if (report.status != 'diproses') const SizedBox(width: 8),
-                  if (report.status != 'selesai')
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: () {
-                          widget.onUpdateStatus!(report.id, 'selesai');
-                          Navigator.pop(ctx);
-                        },
-                        child: const Text('Tandai Selesai', style: TextStyle(fontSize: 12)),
-                      ),
-                    ),
-                ],
-              ),
-            ],
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -570,23 +630,36 @@ class _RiwayatLaporanViewState extends State<RiwayatLaporanView> {
                                             ),
                                             const SizedBox(height: 6),
                                             Row(
-                                              children: [
-                                                const Icon(Icons.location_on_outlined, size: 14, color: SanitaColors.textMuted),
-                                                const SizedBox(width: 4),
-                                                Expanded(
-                                                  child: Text(
-                                                    r.lokasi,
-                                                    style: TextStyle(fontSize: 12, color: isDark ? SanitaColors.darkTextMuted : SanitaColors.textMuted),
-                                                    overflow: TextOverflow.ellipsis,
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 8),
-                                                Text(
-                                                  _formatRelativeTime(r.createdAt),
-                                                  style: TextStyle(fontSize: 11, color: isDark ? SanitaColors.darkTextMuted : SanitaColors.textMuted),
-                                                ),
-                                              ],
-                                            ),
+                                               children: [
+                                                 const Icon(Icons.person_outline, size: 14, color: SanitaColors.primary),
+                                                 const SizedBox(width: 3),
+                                                 Text(
+                                                   '@${r.reporterUsername}',
+                                                   style: TextStyle(
+                                                     fontSize: 11,
+                                                     fontWeight: FontWeight.bold,
+                                                     color: isDark ? SanitaColors.primaryLight : SanitaColors.primary,
+                                                   ),
+                                                 ),
+                                                 const SizedBox(width: 6),
+                                                 Text('•', style: TextStyle(color: isDark ? SanitaColors.darkTextMuted : SanitaColors.textMuted, fontSize: 11)),
+                                                 const SizedBox(width: 6),
+                                                 const Icon(Icons.location_on_outlined, size: 13, color: SanitaColors.textMuted),
+                                                 const SizedBox(width: 3),
+                                                 Expanded(
+                                                   child: Text(
+                                                     r.lokasi,
+                                                     style: TextStyle(fontSize: 12, color: isDark ? SanitaColors.darkTextMuted : SanitaColors.textMuted),
+                                                     overflow: TextOverflow.ellipsis,
+                                                   ),
+                                                 ),
+                                                 const SizedBox(width: 6),
+                                                 Text(
+                                                   _formatRelativeTime(r.createdAt),
+                                                   style: TextStyle(fontSize: 11, color: isDark ? SanitaColors.darkTextMuted : SanitaColors.textMuted),
+                                                 ),
+                                               ],
+                                             ),
                                             const SizedBox(height: 8),
                                             Text(
                                               r.keterangan,

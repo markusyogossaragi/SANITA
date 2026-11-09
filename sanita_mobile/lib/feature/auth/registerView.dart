@@ -19,6 +19,7 @@ class _RegisterViewState extends State<RegisterView> {
 
   bool _isLoading = false;
   bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
   final _authRepo = AuthRepository();
 
   void _register() async {
@@ -218,7 +219,7 @@ class _RegisterViewState extends State<RegisterView> {
               const SizedBox(height: 6),
               TextField(
                 controller: _confirmPasswordCtrl,
-                obscureText: _obscurePassword,
+                obscureText: _obscureConfirmPassword,
                 style: TextStyle(color: labelColor, fontSize: 14),
                 decoration: InputDecoration(
                   hintText: 'Ketik ulang password Anda',
@@ -226,6 +227,10 @@ class _RegisterViewState extends State<RegisterView> {
                   prefixIcon: const Icon(Icons.lock_reset, size: 20, color: SanitaColors.primary),
                   filled: true,
                   fillColor: fieldFillColor,
+                  suffixIcon: IconButton(
+                    icon: Icon(_obscureConfirmPassword ? Icons.visibility_off : Icons.visibility, size: 20, color: SanitaColors.textMuted),
+                    onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
+                  ),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: borderColor)),
                   enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: borderColor)),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
