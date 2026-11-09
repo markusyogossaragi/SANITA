@@ -5,6 +5,7 @@ import '../../core/models/models.dart';
 import '../../core/repositories/authRepository.dart';
 import '../../core/repositories/laporanRepository.dart';
 import '../../core/repositories/sanitasiRepository.dart';
+import '../../core/utils/dateFormatter.dart';
 
 class AdminDashboardView extends StatefulWidget {
   final VoidCallback onBack;
@@ -38,6 +39,17 @@ class _AdminDashboardViewState extends State<AdminDashboardView> with SingleTick
   String _checklistSearchQuery = '';
   final TextEditingController _checklistSearchController = TextEditingController();
 
+  // Fitur Pilih Banyak (Batch Selection)
+  bool _isBatchReports = false;
+  final Set<String> _selectedReportIds = {};
+
+  bool _isBatchChecklist = false;
+  final Set<String> _selectedChecklistIds = {};
+
+  // Filtering per tanggal untuk Hasil Cek Sanitasi
+  DateTime? _checklistDateFilter;
+  String _checklistDatePreset = 'Semua Tanggal';
+
   final List<String> _kategoriMasalahOptions = [
     'Kebersihan Toilet',
     'Pengelolaan Sampah',
@@ -67,6 +79,186 @@ class _AdminDashboardViewState extends State<AdminDashboardView> with SingleTick
     _reportsList = List.from(widget.reports);
     _loadRegisteredUsers();
     _loadChecklistHistory();
+  }
+
+  Future<void> _refreshAllData() async {
+    final freshReports = await LaporanRepository().getReports();
+    final freshHistory = await SanitasiRepository().getHistory();
+    final freshUsers = await AuthRepository().getAllUsers();
+
+    if (mounted) {
+      setState(() {
+        _reportsList = freshReports;
+        _checklistHistory = freshHistory;
+        _registeredUsers = freshUsers;
+        _selectedReportIds.clear();
+        _selectedChecklistIds.clear();
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Semua data panel admin berhasil diperbarui.'),
+          backgroundColor: SanitaColors.primary,
+          behavior: SnackBarBehavior.floating,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  void _setChecklistDatePreset(String preset, [DateTime? customDate]) {
+    setState(() {
+      _checklistDatePreset = preset;
+      if (preset == 'Hari Ini') {
+        _checklistDateFilter = DateTime.now();
+      } else if (preset == 'Kemarin') {
+        _checklistDateFilter = DateTime.now().subtract(const Duration(days: 1));
+      } else if (preset == 'Semua Tanggal') {
+        _checklistDateFilter = null;
+      } else if (customDate != null) {
+        _checklistDateFilter = customDate;
+      }
+    });
+  }
+
+  Future<void> _pickChecklistDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _checklistDateFilter ?? DateTime.now(),
+      firstDate: DateTime(2025),
+      lastDate: DateTime(2030),
+      helpText: 'PILIH TANGGAL HASIL CEK SANITASI',
+    );
+    if (picked != null) {
+      _setChecklistDatePreset('Pilih Tanggal', picked);
+    }
+  }
+
+  void _batchUpdateReportStatus(String newStatus) async {
+    if (_selectedReportIds.isEmpty) return;
+    final ids = List<String>.from(_selectedReportIds);
+    for (final id in ids) {
+      await LaporanRepository().updateStatus(id, newStatus);
+      final idx = _reportsList.indexWhere((r) => r.id == id);
+      if (idx != -1) {
+        final old = _reportsList[idx];
+        final updated = LaporanModel(
+          id: old.id,
+          jenisMasalah: old.jenisMasalah,
+          lokasi: old.lokasi,
+          keterangan: old.keterangan,
+          fotoUrl: old.fotoUrl,
+          status: newStatus,
+          urgensi: old.urgensi,
+          reporterName: old.reporterName,
+          createdAt: old.createdAt,
+          integrityHMAC: old.integrityHMAC,
+          catatanDisposisi: old.catatanDisposisi,
+        );
+        _reportsList[idx] = updated;
+      }
+      if (widget.onUpdateStatus != null) {
+        widget.onUpdateStatus!(id, newStatus);
+      }
+    }
+    setState(() {
+      _selectedReportIds.clear();
+      _isBatchReports = false;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('${ids.length} laporan diubah ke: ${newStatus.toUpperCase()}'),
+        backgroundColor: SanitaColors.primary,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  void _batchDeleteReports() async {
+    if (_selectedReportIds.isEmpty) return;
+    final count = _selectedReportIds.length;
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Hapus Banyak Laporan?'),
+        content: Text('Apakah Anda yakin ingin menghapus $count laporan yang dipilih secara massal?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: SanitaColors.alertRed),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Hapus Semua', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      final ids = List<String>.from(_selectedReportIds);
+      for (final id in ids) {
+        await LaporanRepository().deleteReport(id);
+        _reportsList.removeWhere((r) => r.id == id);
+        if (widget.onDeleteReport != null) {
+          widget.onDeleteReport!(id);
+        }
+      }
+      setState(() {
+        _selectedReportIds.clear();
+        _isBatchReports = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$count laporan berhasil dihapus.'),
+          backgroundColor: SanitaColors.alertRed,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  void _batchDeleteChecklists() async {
+    if (_selectedChecklistIds.isEmpty) return;
+    final count = _selectedChecklistIds.length;
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Hapus Banyak Hasil Cek?'),
+        content: Text('Apakah Anda yakin ingin menghapus $count catatan hasil cek sanitasi yang dipilih?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: SanitaColors.alertRed),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Hapus Semua', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      final ids = List<String>.from(_selectedChecklistIds);
+      for (final id in ids) {
+        await SanitasiRepository().deleteChecklist(id);
+        _checklistHistory.removeWhere((c) => c.id == id);
+      }
+      setState(() {
+        _selectedChecklistIds.clear();
+        _isBatchChecklist = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$count catatan hasil cek berhasil dihapus.'),
+          backgroundColor: SanitaColors.alertRed,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   void _loadRegisteredUsers() async {
@@ -1080,23 +1272,135 @@ class _AdminDashboardViewState extends State<AdminDashboardView> with SingleTick
           ),
         ),
 
-        // Daftar Laporan
-        Expanded(
-          child: filtered.isEmpty
-              ? Center(
-                  child: Text(
-                    'Tidak ada laporan pada status ini.',
-                    style: TextStyle(color: isDark ? SanitaColors.darkTextMuted : SanitaColors.textMuted),
-                  ),
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  itemCount: filtered.length,
-                  itemBuilder: (ctx, index) {
-                    final report = filtered[index];
-                    return _buildAdminReportCard(report, isDark);
-                  },
+        // Toolbar Fitur Pilih Banyak (Batch Selection)
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              OutlinedButton.icon(
+                icon: Icon(_isBatchReports ? Icons.close : Icons.checklist_rtl, size: 16),
+                label: Text(_isBatchReports ? 'Batal Pilih' : 'Pilih Banyak', style: const TextStyle(fontSize: 12)),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
+                onPressed: () {
+                  setState(() {
+                    _isBatchReports = !_isBatchReports;
+                    _selectedReportIds.clear();
+                  });
+                },
+              ),
+              if (_isBatchReports) ...[
+                TextButton(
+                  onPressed: () {
+                    setState(() {
+                      if (_selectedReportIds.length == filtered.length) {
+                        _selectedReportIds.clear();
+                      } else {
+                        _selectedReportIds.addAll(filtered.map((r) => r.id));
+                      }
+                    });
+                  },
+                  child: Text(
+                    _selectedReportIds.length == filtered.length ? 'Batal Semua' : 'Pilih Semua',
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ),
+                Text(
+                  '${_selectedReportIds.length} dipilih',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? SanitaColors.primaryLight : SanitaColors.primary,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+
+        // Action Bar saat ada item dipilih
+        if (_isBatchReports && _selectedReportIds.isNotEmpty)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            decoration: BoxDecoration(
+              color: isDark ? SanitaColors.darkCard : const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: isDark ? SanitaColors.darkBorder : const Color(0xFFCBD5E1)),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: PopupMenuButton<String>(
+                    onSelected: (status) => _batchUpdateReportStatus(status),
+                    itemBuilder: (ctx) => [
+                      const PopupMenuItem(value: 'terkirim', child: Text('Tandai Terkirim (Pending)')),
+                      const PopupMenuItem(value: 'diproses', child: Text('Tandai Diproses')),
+                      const PopupMenuItem(value: 'selesai', child: Text('Tandai Selesai')),
+                    ],
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+                      decoration: BoxDecoration(
+                        color: SanitaColors.primary,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.edit_note, size: 16, color: Colors.white),
+                          SizedBox(width: 4),
+                          Text('Ubah Status Terpilih', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: SanitaColors.alertRed,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+                  ),
+                  icon: const Icon(Icons.delete_outline, size: 16, color: Colors.white),
+                  label: Text('Hapus (${_selectedReportIds.length})', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                  onPressed: _batchDeleteReports,
+                ),
+              ],
+            ),
+          ),
+
+        // Daftar Laporan dengan Pull-to-Refresh
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: _refreshAllData,
+            color: SanitaColors.primary,
+            child: filtered.isEmpty
+                ? ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    children: [
+                      SizedBox(height: MediaQuery.of(context).size.height * 0.2),
+                      Center(
+                        child: Text(
+                          'Tidak ada laporan pada status ini.',
+                          style: TextStyle(color: isDark ? SanitaColors.darkTextMuted : SanitaColors.textMuted),
+                        ),
+                      ),
+                    ],
+                  )
+                : ListView.builder(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    itemCount: filtered.length,
+                    itemBuilder: (ctx, index) {
+                      final report = filtered[index];
+                      return _buildAdminReportCard(report, isDark);
+                    },
+                  ),
+          ),
         ),
       ],
     );
@@ -1119,27 +1423,69 @@ class _AdminDashboardViewState extends State<AdminDashboardView> with SingleTick
         statusLabel = 'TERKIRIM (PENDING)';
     }
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: BorderSide(color: isDark ? SanitaColors.darkBorder : SanitaColors.border),
-      ),
-      color: isDark ? SanitaColors.darkCard : Colors.white,
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(report.id, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: SanitaColors.primary)),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: statusColor.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(6),
+    final isSelected = _selectedReportIds.contains(report.id);
+
+    return InkWell(
+      onTap: _isBatchReports
+          ? () {
+              setState(() {
+                if (isSelected) {
+                  _selectedReportIds.remove(report.id);
+                } else {
+                  _selectedReportIds.add(report.id);
+                }
+              });
+            }
+          : null,
+      borderRadius: BorderRadius.circular(14),
+      child: Card(
+        margin: const EdgeInsets.only(bottom: 12),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: BorderSide(
+            color: isSelected
+                ? SanitaColors.primary
+                : (isDark ? SanitaColors.darkBorder : SanitaColors.border),
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        color: isSelected
+            ? (isDark ? SanitaColors.primaryDark.withOpacity(0.2) : const Color(0xFFE8F5E9))
+            : (isDark ? SanitaColors.darkCard : Colors.white),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      if (_isBatchReports) ...[
+                        Checkbox(
+                          value: isSelected,
+                          activeColor: SanitaColors.primary,
+                          onChanged: (val) {
+                            setState(() {
+                              if (val == true) {
+                                _selectedReportIds.add(report.id);
+                              } else {
+                                _selectedReportIds.remove(report.id);
+                              }
+                            });
+                          },
+                        ),
+                        const SizedBox(width: 4),
+                      ],
+                      Text(report.id, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: SanitaColors.primary)),
+                    ],
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: statusColor.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
                     statusLabel,
@@ -1344,8 +1690,9 @@ class _AdminDashboardViewState extends State<AdminDashboardView> with SingleTick
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   // --- TAB 2: HASIL CEK SANITASI (ARSIP INSPEKSI KHUSUS ADMIN) ---
   Widget _buildChecklistResultsTab(bool isDark) {
@@ -1363,6 +1710,14 @@ class _AdminDashboardViewState extends State<AdminDashboardView> with SingleTick
         matchesStatus = !isMS;
       }
 
+      bool matchesDate = true;
+      if (_checklistDateFilter != null) {
+        final cd = c.createdAt.toLocal();
+        matchesDate = cd.year == _checklistDateFilter!.year &&
+            cd.month == _checklistDateFilter!.month &&
+            cd.day == _checklistDateFilter!.day;
+      }
+
       bool matchesSearch = true;
       if (query.isNotEmpty) {
         matchesSearch = c.lokasi.toLowerCase().contains(query) ||
@@ -1371,11 +1726,12 @@ class _AdminDashboardViewState extends State<AdminDashboardView> with SingleTick
             c.statusHasil.toLowerCase().contains(query);
       }
 
-      return matchesStatus && matchesSearch;
+      return matchesStatus && matchesDate && matchesSearch;
     }).toList();
 
     final msCount = _checklistHistory.where((c) => c.skorTerpenuhi == 6).length;
     final tmsCount = _checklistHistory.where((c) => c.skorTerpenuhi < 6).length;
+    final bool isChecklistFiltered = _checklistDateFilter != null || _checklistStatusFilter != 'Semua';
 
     return Column(
       children: [
@@ -1391,107 +1747,242 @@ class _AdminDashboardViewState extends State<AdminDashboardView> with SingleTick
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Search Bar
-              TextField(
-                controller: _checklistSearchController,
-                onChanged: (val) {
-                  setState(() {
-                    _checklistSearchQuery = val;
-                  });
-                },
-                style: TextStyle(color: isDark ? Colors.white : SanitaColors.textDark, fontSize: 13),
-                decoration: InputDecoration(
-                  hintText: 'Cari lokasi, ID cek, atau @username inspektur...',
-                  hintStyle: TextStyle(color: isDark ? SanitaColors.darkTextMuted : Colors.grey.shade400, fontSize: 12),
-                  prefixIcon: const Icon(Icons.search, size: 20, color: SanitaColors.textMuted),
-                  suffixIcon: _checklistSearchQuery.isNotEmpty
-                      ? IconButton(
-                          icon: const Icon(Icons.clear, size: 18),
-                          onPressed: () {
-                            _checklistSearchController.clear();
-                            setState(() {
-                              _checklistSearchQuery = '';
-                            });
-                          },
-                        )
-                      : null,
-                  filled: true,
-                  fillColor: isDark ? SanitaColors.darkSurface : const Color(0xFFF8FAFC),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(color: isDark ? SanitaColors.darkBorder : const Color(0xFFE2E8F0)),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(color: isDark ? SanitaColors.darkBorder : const Color(0xFFE2E8F0)),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 10),
-
-              // Status Filter Chips
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    _buildChecklistFilterChip(
-                      label: 'Semua (${_checklistHistory.length})',
-                      filterKey: 'Semua',
-                      isDark: isDark,
-                    ),
-                    const SizedBox(width: 8),
-                    _buildChecklistFilterChip(
-                      label: 'Memenuhi Syarat / MS ($msCount)',
-                      filterKey: 'Memenuhi Syarat',
-                      isDark: isDark,
-                    ),
-                    const SizedBox(width: 8),
-                    _buildChecklistFilterChip(
-                      label: 'TMS / Cukup ($tmsCount)',
-                      filterKey: 'TMS / Perlu Perbaikan',
-                      isDark: isDark,
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 8),
-
-              // Baris Info Hasil Filter
+              // Search Bar + Ikon Filter (Tidak langsung tampil semua agar UI bersih)
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    '${filtered.length} dari ${_checklistHistory.length} pemeriksaan ditampilkan',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                      color: isDark ? SanitaColors.darkTextMuted : SanitaColors.textMuted,
-                    ),
-                  ),
-                  InkWell(
-                    onTap: _loadChecklistHistory,
-                    borderRadius: BorderRadius.circular(6),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                      child: Row(
-                        children: [
-                          Icon(Icons.refresh, size: 13, color: isDark ? SanitaColors.primaryLight : SanitaColors.primary),
-                          const SizedBox(width: 3),
-                          Text(
-                            'Segarkan Data',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: isDark ? SanitaColors.primaryLight : SanitaColors.primary,
-                            ),
-                          ),
-                        ],
+                  Expanded(
+                    child: TextField(
+                      controller: _checklistSearchController,
+                      onChanged: (val) {
+                        setState(() {
+                          _checklistSearchQuery = val;
+                        });
+                      },
+                      style: TextStyle(color: isDark ? Colors.white : SanitaColors.textDark, fontSize: 13),
+                      decoration: InputDecoration(
+                        hintText: 'Cari lokasi, ID cek, atau @username inspektur...',
+                        hintStyle: TextStyle(color: isDark ? SanitaColors.darkTextMuted : Colors.grey.shade400, fontSize: 12),
+                        prefixIcon: const Icon(Icons.search, size: 20, color: SanitaColors.textMuted),
+                        suffixIcon: _checklistSearchQuery.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.clear, size: 18),
+                                onPressed: () {
+                                  _checklistSearchController.clear();
+                                  setState(() {
+                                    _checklistSearchQuery = '';
+                                  });
+                                },
+                              )
+                            : null,
+                        filled: true,
+                        fillColor: isDark ? SanitaColors.darkSurface : const Color(0xFFF8FAFC),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide(color: isDark ? SanitaColors.darkBorder : const Color(0xFFE2E8F0)),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide(color: isDark ? SanitaColors.darkBorder : const Color(0xFFE2E8F0)),
+                        ),
                       ),
                     ),
                   ),
+                  const SizedBox(width: 8),
+                  // Ikon Filter (Buka Modal Bottom Sheet Filter)
+                  Material(
+                    color: isChecklistFiltered
+                        ? SanitaColors.primary
+                        : (isDark ? SanitaColors.darkSurface : const Color(0xFFF1F5F9)),
+                    borderRadius: BorderRadius.circular(10),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(10),
+                      onTap: () => _showChecklistFilterBottomSheet(isDark, msCount, tmsCount),
+                      child: Container(
+                        padding: const EdgeInsets.all(11),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: isChecklistFiltered
+                                ? SanitaColors.primary
+                                : (isDark ? SanitaColors.darkBorder : const Color(0xFFE2E8F0)),
+                          ),
+                        ),
+                        child: Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            Icon(
+                              Icons.tune_rounded,
+                              size: 20,
+                              color: isChecklistFiltered ? Colors.white : (isDark ? Colors.white70 : SanitaColors.textDark),
+                            ),
+                            if (isChecklistFiltered)
+                              Positioned(
+                                right: -2,
+                                top: -2,
+                                child: Container(
+                                  width: 8,
+                                  height: 8,
+                                  decoration: const BoxDecoration(
+                                    color: SanitaColors.accentAmber,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
+              // Indikator ringkas jika filter aktif
+              if (isChecklistFiltered) ...[
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    if (_checklistDateFilter != null)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: isDark ? SanitaColors.primaryDark.withOpacity(0.3) : SanitaColors.primarySurface,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: SanitaColors.primary.withOpacity(0.4)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.calendar_today, size: 11, color: SanitaColors.primary),
+                            const SizedBox(width: 4),
+                            Text(
+                              _checklistDatePreset == 'Pilih Tanggal'
+                                  ? DateFormatter.toIndonesian(_checklistDateFilter!)
+                                  : _checklistDatePreset,
+                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: SanitaColors.primary),
+                            ),
+                            const SizedBox(width: 4),
+                            InkWell(
+                              onTap: () {
+                                setState(() {
+                                  _checklistDateFilter = null;
+                                  _checklistDatePreset = 'Semua Tanggal';
+                                });
+                              },
+                              child: const Icon(Icons.close, size: 13, color: SanitaColors.primary),
+                            ),
+                          ],
+                        ),
+                      ),
+                    if (_checklistStatusFilter != 'Semua')
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: isDark ? SanitaColors.primaryDark.withOpacity(0.3) : SanitaColors.primarySurface,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: SanitaColors.primary.withOpacity(0.4)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.label_outline, size: 11, color: SanitaColors.primary),
+                            const SizedBox(width: 4),
+                            Text(
+                              _checklistStatusFilter,
+                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: SanitaColors.primary),
+                            ),
+                            const SizedBox(width: 4),
+                            InkWell(
+                              onTap: () {
+                                setState(() {
+                                  _checklistStatusFilter = 'Semua';
+                                });
+                              },
+                              child: const Icon(Icons.close, size: 13, color: SanitaColors.primary),
+                            ),
+                          ],
+                        ),
+                      ),
+                    InkWell(
+                      onTap: () {
+                        setState(() {
+                          _checklistDateFilter = null;
+                          _checklistDatePreset = 'Semua Tanggal';
+                          _checklistStatusFilter = 'Semua';
+                        });
+                      },
+                      child: const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                        child: Text(
+                          'Reset',
+                          style: TextStyle(fontSize: 11, color: SanitaColors.alertRed, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+
+              const SizedBox(height: 8),
+
+              // Toolbar Pilih Banyak (Batch Selection) & Info Hasil
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  OutlinedButton.icon(
+                    icon: Icon(_isBatchChecklist ? Icons.close : Icons.checklist_rtl, size: 15),
+                    label: Text(_isBatchChecklist ? 'Batal Pilih' : 'Pilih Banyak', style: const TextStyle(fontSize: 11)),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _isBatchChecklist = !_isBatchChecklist;
+                        _selectedChecklistIds.clear();
+                      });
+                    },
+                  ),
+                  if (_isBatchChecklist) ...[
+                    TextButton(
+                      onPressed: () {
+                        setState(() {
+                          if (_selectedChecklistIds.length == filtered.length) {
+                            _selectedChecklistIds.clear();
+                          } else {
+                            _selectedChecklistIds.addAll(filtered.map((c) => c.id));
+                          }
+                        });
+                      },
+                      child: Text(
+                        _selectedChecklistIds.length == filtered.length ? 'Batal Semua' : 'Pilih Semua',
+                        style: const TextStyle(fontSize: 11),
+                      ),
+                    ),
+                    if (_selectedChecklistIds.isNotEmpty)
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: SanitaColors.alertRed,
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                        ),
+                        icon: const Icon(Icons.delete_outline, size: 14, color: Colors.white),
+                        label: Text('Hapus (${_selectedChecklistIds.length})', style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                        onPressed: _batchDeleteChecklists,
+                      ),
+                  ] else ...[
+                    Text(
+                      '${filtered.length} dari ${_checklistHistory.length} data',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: isDark ? SanitaColors.darkTextMuted : SanitaColors.textMuted,
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ],
@@ -1502,184 +1993,375 @@ class _AdminDashboardViewState extends State<AdminDashboardView> with SingleTick
         // DAFTAR KARTU HASIL CEK SANITASI
         // ==========================================
         Expanded(
-          child: filtered.isEmpty
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.fact_check_outlined, size: 48, color: isDark ? SanitaColors.darkBorder : Colors.grey.shade400),
-                        const SizedBox(height: 12),
-                        Text(
-                          _checklistHistory.isEmpty
-                              ? 'Belum ada hasil cek sanitasi yang dikirim.'
-                              : 'Tidak ada hasil pemeriksaan yang sesuai dengan filter.',
-                          style: TextStyle(color: isDark ? SanitaColors.darkTextMuted : SanitaColors.textMuted, fontSize: 13),
-                          textAlign: TextAlign.center,
-                        ),
-                        if (_checklistSearchQuery.isNotEmpty || _checklistStatusFilter != 'Semua') ...[
-                          const SizedBox(height: 12),
-                          OutlinedButton.icon(
-                            icon: const Icon(Icons.filter_alt_off, size: 16),
-                            label: const Text('Reset Filter Pencarian', style: TextStyle(fontSize: 12)),
-                            onPressed: () {
-                              _checklistSearchController.clear();
-                              setState(() {
-                                _checklistSearchQuery = '';
-                                _checklistStatusFilter = 'Semua';
-                              });
-                            },
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: filtered.length,
-                  itemBuilder: (ctx, idx) {
-                    final c = filtered[idx];
-                    final bool isMS = c.skorTerpenuhi == 6;
-
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        side: BorderSide(color: isDark ? SanitaColors.darkBorder : SanitaColors.border),
-                      ),
-                      color: isDark ? SanitaColors.darkCard : Colors.white,
-                      child: Padding(
-                        padding: const EdgeInsets.all(14),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(c.id, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: SanitaColors.primary)),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                  decoration: BoxDecoration(
-                                    color: isMS ? const Color(0xFFD1FAE5) : const Color(0xFFFEF3C7),
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: Text(
-                                    isMS ? 'MEMENUHI SYARAT (100%)' : 'TMS (${c.persentase.round()}%)',
-                                    style: TextStyle(
-                                      color: isMS ? const Color(0xFF047857) : const Color(0xFFB45309),
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 10,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              c.lokasi,
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: isDark ? Colors.white : SanitaColors.textDark),
-                            ),
-                            const SizedBox(height: 4),
-
-                            // Info Waktu Kirim & Inspektur
-                            Row(
-                              children: [
-                                const Icon(Icons.person_outline, size: 14, color: SanitaColors.primary),
-                                const SizedBox(width: 4),
-                                Text(
-                                  '@${c.inspectorUsername}',
-                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? SanitaColors.primaryLight : SanitaColors.primary),
-                                ),
-                                const SizedBox(width: 8),
-                                const Text('•', style: TextStyle(fontSize: 11, color: SanitaColors.textMuted)),
-                                const SizedBox(width: 8),
-                                const Icon(Icons.access_time, size: 13, color: SanitaColors.textMuted),
-                                const SizedBox(width: 4),
-                                Expanded(
-                                  child: Text(
-                                    'Dikirim: ${c.createdAt.toLocal().toString().substring(0, 16)}',
-                                    style: TextStyle(fontSize: 11, color: isDark ? SanitaColors.darkTextMuted : SanitaColors.textMuted),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              'Skor Kelaikan: ${c.skorTerpenuhi} dari 6 butir checklist terpenuhi.',
-                              style: TextStyle(fontSize: 12, color: isDark ? SanitaColors.darkText : SanitaColors.textDark),
-                            ),
-                            const Divider(height: 16),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                TextButton.icon(
-                                  icon: const Icon(Icons.list_alt, size: 15),
-                                  label: const Text('Rincian 6 Kriteria', style: TextStyle(fontSize: 12)),
-                                  onPressed: () => _showChecklistDetailDialog(c),
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.delete_outline, size: 18, color: SanitaColors.alertRed),
-                                  tooltip: 'Hapus Catatan Hasil Cek',
-                                  onPressed: () async {
-                                    await SanitasiRepository().deleteChecklist(c.id);
-                                    _loadChecklistHistory();
-                                    if (mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(
-                                          content: Text('Catatan hasil cek ${c.id} dihapus.'),
-                                          backgroundColor: SanitaColors.alertRed,
-                                          behavior: SnackBarBehavior.floating,
-                                        ),
-                                      );
-                                    }
+          child: RefreshIndicator(
+            onRefresh: _refreshAllData,
+            color: SanitaColors.primary,
+            child: filtered.isEmpty
+                ? ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    children: [
+                      SizedBox(height: MediaQuery.of(context).size.height * 0.18),
+                      Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.fact_check_outlined, size: 48, color: isDark ? SanitaColors.darkBorder : Colors.grey.shade400),
+                              const SizedBox(height: 12),
+                              Text(
+                                _checklistHistory.isEmpty
+                                    ? 'Belum ada hasil cek sanitasi yang dikirim.'
+                                    : 'Tidak ada hasil pemeriksaan yang sesuai dengan filter.',
+                                style: TextStyle(color: isDark ? SanitaColors.darkTextMuted : SanitaColors.textMuted, fontSize: 13),
+                                textAlign: TextAlign.center,
+                              ),
+                              if (_checklistSearchQuery.isNotEmpty || _checklistStatusFilter != 'Semua' || _checklistDateFilter != null) ...[
+                                const SizedBox(height: 12),
+                                OutlinedButton.icon(
+                                  icon: const Icon(Icons.filter_alt_off, size: 16),
+                                  label: const Text('Reset Filter Pencarian', style: TextStyle(fontSize: 12)),
+                                  onPressed: () {
+                                    _checklistSearchController.clear();
+                                    setState(() {
+                                      _checklistSearchQuery = '';
+                                      _checklistStatusFilter = 'Semua';
+                                      _checklistDateFilter = null;
+                                      _checklistDatePreset = 'Semua Tanggal';
+                                    });
                                   },
                                 ),
                               ],
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
-                    );
-                  },
-                ),
+                    ],
+                  )
+                : ListView.builder(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.all(16),
+                    itemCount: filtered.length,
+                    itemBuilder: (ctx, idx) {
+                      final c = filtered[idx];
+                      final bool isMS = c.skorTerpenuhi == 6;
+                      final isSelected = _selectedChecklistIds.contains(c.id);
+
+                      return InkWell(
+                        onTap: _isBatchChecklist
+                            ? () {
+                                setState(() {
+                                  if (isSelected) {
+                                    _selectedChecklistIds.remove(c.id);
+                                  } else {
+                                    _selectedChecklistIds.add(c.id);
+                                  }
+                                });
+                              }
+                            : null,
+                        borderRadius: BorderRadius.circular(14),
+                        child: Card(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            side: BorderSide(
+                              color: isSelected
+                                  ? SanitaColors.primary
+                                  : (isDark ? SanitaColors.darkBorder : SanitaColors.border),
+                              width: isSelected ? 2 : 1,
+                            ),
+                          ),
+                          color: isSelected
+                              ? (isDark ? SanitaColors.primaryDark.withOpacity(0.2) : const Color(0xFFE8F5E9))
+                              : (isDark ? SanitaColors.darkCard : Colors.white),
+                          child: Padding(
+                            padding: const EdgeInsets.all(14),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        if (_isBatchChecklist) ...[
+                                          Checkbox(
+                                            value: isSelected,
+                                            activeColor: SanitaColors.primary,
+                                            onChanged: (val) {
+                                              setState(() {
+                                                if (val == true) {
+                                                  _selectedChecklistIds.add(c.id);
+                                                } else {
+                                                  _selectedChecklistIds.remove(c.id);
+                                                }
+                                              });
+                                            },
+                                          ),
+                                          const SizedBox(width: 4),
+                                        ],
+                                        Text(c.id, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: SanitaColors.primary)),
+                                      ],
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: isMS ? const Color(0xFFD1FAE5) : const Color(0xFFFEF3C7),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        isMS ? 'MEMENUHI SYARAT (100%)' : 'TMS (${c.persentase.round()}%)',
+                                        style: TextStyle(
+                                          color: isMS ? const Color(0xFF047857) : const Color(0xFFB45309),
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 10,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  c.lokasi,
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: isDark ? Colors.white : SanitaColors.textDark),
+                                ),
+                                const SizedBox(height: 4),
+
+                                // Info Waktu Kirim & Inspektur
+                                Row(
+                                  children: [
+                                    const Icon(Icons.person_outline, size: 14, color: SanitaColors.primary),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      '@${c.inspectorUsername}',
+                                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? SanitaColors.primaryLight : SanitaColors.primary),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    const Text('•', style: TextStyle(fontSize: 11, color: SanitaColors.textMuted)),
+                                    const SizedBox(width: 8),
+                                    const Icon(Icons.access_time, size: 13, color: SanitaColors.textMuted),
+                                    const SizedBox(width: 4),
+                                    Expanded(
+                                      child: Text(
+                                        'Dikirim: ${DateFormatter.toIndonesianDateTime(c.createdAt)}',
+                                        style: TextStyle(fontSize: 11, color: isDark ? SanitaColors.darkTextMuted : SanitaColors.textMuted),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  'Skor Kelaikan: ${c.skorTerpenuhi} dari 6 butir checklist terpenuhi.',
+                                  style: TextStyle(fontSize: 12, color: isDark ? SanitaColors.darkText : SanitaColors.textDark),
+                                ),
+                                const Divider(height: 16),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    TextButton.icon(
+                                      icon: const Icon(Icons.list_alt, size: 15),
+                                      label: const Text('Rincian 6 Kriteria', style: TextStyle(fontSize: 12)),
+                                      onPressed: () => _showChecklistDetailDialog(c),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.delete_outline, size: 18, color: SanitaColors.alertRed),
+                                      tooltip: 'Hapus Catatan Hasil Cek',
+                                      onPressed: () async {
+                                        await SanitasiRepository().deleteChecklist(c.id);
+                                        _loadChecklistHistory();
+                                        if (mounted) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(
+                                              content: Text('Catatan hasil cek ${c.id} dihapus.'),
+                                              backgroundColor: SanitaColors.alertRed,
+                                              behavior: SnackBarBehavior.floating,
+                                            ),
+                                          );
+                                        }
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildChecklistFilterChip({
-    required String label,
-    required String filterKey,
-    required bool isDark,
-  }) {
-    final isSelected = _checklistStatusFilter == filterKey;
-    return FilterChip(
-      label: Text(
-        label,
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-          color: isSelected ? Colors.white : (isDark ? Colors.white70 : SanitaColors.textDark),
-        ),
-      ),
-      selected: isSelected,
-      selectedColor: SanitaColors.primary,
+  void _showChecklistFilterBottomSheet(bool isDark, int msCount, int tmsCount) {
+    showModalBottomSheet(
+      context: context,
       backgroundColor: isDark ? SanitaColors.darkCard : Colors.white,
-      side: BorderSide(
-        color: isSelected
-            ? SanitaColors.primary
-            : (isDark ? SanitaColors.darkBorder : SanitaColors.border),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      onSelected: (val) {
-        setState(() {
-          _checklistStatusFilter = filterKey;
-        });
-      },
-    );
-  }
+      isScrollControlled: true,
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.white24 : Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.tune_rounded, size: 18, color: SanitaColors.primary),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Filter Hasil Cek Sanitasi',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.white : SanitaColors.textDark,
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (_checklistDateFilter != null || _checklistStatusFilter != 'Semua')
+                        TextButton(
+                          onPressed: () {
+                            setState(() {
+                              _checklistDateFilter = null;
+                              _checklistDatePreset = 'Semua Tanggal';
+                              _checklistStatusFilter = 'Semua';
+                            });
+                            Navigator.pop(ctx);
+                          },
+                          child: const Text('Reset', style: TextStyle(fontSize: 12, color: SanitaColors.alertRed)),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  // SEKSI 1: RENTANG TANGGAL
+                  Text(
+                    'Rentang Tanggal',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: isDark ? Colors.white70 : Colors.grey.shade800),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      _buildChecklistFilterOptionChip(
+                        label: 'Semua Tanggal',
+                        isSelected: _checklistDatePreset == 'Semua Tanggal',
+                        icon: Icons.all_inclusive,
+                        isDark: isDark,
+                        onTap: () {
+                          _setChecklistDatePreset('Semua Tanggal');
+                          Navigator.pop(ctx);
+                        },
+                      ),
+                      _buildChecklistFilterOptionChip(
+                        label: 'Hari Ini',
+                        isSelected: _checklistDatePreset == 'Hari Ini',
+                        icon: Icons.today,
+                        isDark: isDark,
+                        onTap: () {
+                          _setChecklistDatePreset('Hari Ini');
+                          Navigator.pop(ctx);
+                        },
+                      ),
+                      _buildChecklistFilterOptionChip(
+                        label: 'Kemarin',
+                        isSelected: _checklistDatePreset == 'Kemarin',
+                        icon: Icons.history,
+                        isDark: isDark,
+                        onTap: () {
+                          _setChecklistDatePreset('Kemarin');
+                          Navigator.pop(ctx);
+                        },
+                      ),
+                      _buildChecklistFilterOptionChip(
+                        label: _checklistDatePreset == 'Pilih Tanggal' && _checklistDateFilter != null
+                            ? DateFormatter.toIndonesian(_checklistDateFilter!)
+                            : 'Pilih Tanggal...',
+                        isSelected: _checklistDatePreset == 'Pilih Tanggal',
+                        icon: Icons.calendar_month,
+                        isDark: isDark,
+                        onTap: () async {
+                          Navigator.pop(ctx);
+                          await _pickChecklistDate();
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  // SEKSI 2: STATUS KELAYAKAN
+                  Text(
+                    'Status Kelayakan Sanitasi',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: isDark ? Colors.white70 : Colors.grey.shade800),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      _buildChecklistFilterOptionChip(
+                        label: 'Semua Status (${_checklistHistory.length})',
+                        isSelected: _checklistStatusFilter == 'Semua',
+                        icon: Icons.fact_check_outlined,
+                        isDark: isDark,
+                        onTap: () {
+                          setState(() {
+                            _checklistStatusFilter = 'Semua';
+                          });
+                          Navigator.pop(ctx);
+                        },
+                      ),
+                      _buildChecklistFilterOptionChip(
+                        label: 'Memenuhi Syarat / MS ($msCount)',
+                        isSelected: _checklistStatusFilter == 'Memenuhi Syarat',
+                        icon: Icons.check_circle_outline,
+                        isDark: isDark,
+                        onTap: () {
+                          setState(() {
+                            _checklistStatusFilter = 'Memenuhi Syarat';
+                          });
+                          Navigator.pop(ctx);
+                        },
+                      ),
+                      _buildChecklistFilterOptionChip(
+                        label: 'TMS / Perlu Perbaikan ($tmsCount)',
+                        isSelected: _checklistStatusFilter == 'TMS / Perlu Perbaikan',
+                        icon: Icons.warning_amber_rounded,
+                        isDark: isDark,
+                        onTap: () {
+                          setState(() {
+                            _checklistStatusFilter = 'TMS / Perlu Perbaikan';
+                          });
+                          Navigator.pop(ctx);
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                ],
+              ),
             ),
           ),
         );
@@ -1687,15 +2369,70 @@ class _AdminDashboardViewState extends State<AdminDashboardView> with SingleTick
     );
   }
 
+  Widget _buildChecklistFilterOptionChip({
+    required String label,
+    required bool isSelected,
+    required IconData icon,
+    required bool isDark,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? (isDark ? SanitaColors.primaryDark.withOpacity(0.3) : SanitaColors.primarySurface)
+              : (isDark ? SanitaColors.darkSurface : const Color(0xFFF8FAFC)),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isSelected
+                ? SanitaColors.primary
+                : (isDark ? SanitaColors.darkBorder : const Color(0xFFE2E8F0)),
+            width: isSelected ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 15,
+              color: isSelected ? SanitaColors.primary : (isDark ? Colors.white60 : Colors.grey.shade600),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                color: isSelected ? SanitaColors.primary : (isDark ? Colors.white : SanitaColors.textDark),
+              ),
+            ),
+            if (isSelected) ...[
+              const SizedBox(width: 6),
+              const Icon(Icons.check, size: 14, color: SanitaColors.primary),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+  
   Widget _buildUserDatabaseTab(bool isDark) {
     if (_isLoadingUsers) {
       return const Center(child: CircularProgressIndicator(color: SanitaColors.primary));
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: _registeredUsers.length,
-      itemBuilder: (ctx, idx) {
+    return RefreshIndicator(
+      onRefresh: _refreshAllData,
+      color: SanitaColors.primary,
+      child: ListView.builder(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        itemCount: _registeredUsers.length,
+        itemBuilder: (ctx, idx) {
         final u = _registeredUsers[idx];
         final bool isAdmin = (u['username'] ?? '').toString().toLowerCase() == 'ribka' || (u['role'] ?? '') == 'Admin';
 
@@ -1793,24 +2530,30 @@ class _AdminDashboardViewState extends State<AdminDashboardView> with SingleTick
           ),
         );
       },
+      ),
     );
   }
 
   Widget _buildSystemInfoTab(bool isDark) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Dasar Hukum & Standar K3 Sanitasi',
-            style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: isDark ? Colors.white : SanitaColors.textDark),
-          ),
-          const SizedBox(height: 8),
-          _buildInfoTile('Permenkes No. 70 Tahun 2016', 'Standar dan Persyaratan Kesehatan Lingkungan Kerja Industri.', isDark),
-          _buildInfoTile('Permenaker No. 5 Tahun 2018', 'Keselamatan dan Kesehatan Kerja Lingkungan Kerja.', isDark),
-          _buildInfoTile('Kepmenkes No. 1405/Menkes/SK/XI/2002', 'Persyaratan Kesehatan Lingkungan Kerja Perkantoran dan Sekolah.', isDark),
-        ],
+    return RefreshIndicator(
+      onRefresh: _refreshAllData,
+      color: SanitaColors.primary,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Dasar Hukum & Standar K3 Sanitasi',
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: isDark ? Colors.white : SanitaColors.textDark),
+            ),
+            const SizedBox(height: 8),
+            _buildInfoTile('Permenkes No. 70 Tahun 2016', 'Standar dan Persyaratan Kesehatan Lingkungan Kerja Industri.', isDark),
+            _buildInfoTile('Permenaker No. 5 Tahun 2018', 'Keselamatan dan Kesehatan Kerja Lingkungan Kerja.', isDark),
+            _buildInfoTile('Kepmenkes No. 1405/Menkes/SK/XI/2002', 'Persyaratan Kesehatan Lingkungan Kerja Perkantoran dan Sekolah.', isDark),
+          ],
+        ),
       ),
     );
   }

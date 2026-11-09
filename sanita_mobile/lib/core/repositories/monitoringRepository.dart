@@ -6,13 +6,23 @@ import 'laporanRepository.dart';
 class MonitoringRepository {
   static final ApiDataSource _api = ApiDataSource();
 
-  Future<RekapSanitasiLingkungan> getRekapSanitasiLingkungan() async {
+  Future<RekapSanitasiLingkungan> getRekapSanitasiLingkungan({DateTime? targetDate}) async {
     final checklists = await SanitasiRepository().getHistory();
     final reports = await LaporanRepository().getReports();
 
-    // 1. Group by location - get the latest daily inspection for each unique location
+    // Filter by targetDate if specified (reset per hari)
+    final activeChecklists = targetDate == null
+        ? checklists
+        : checklists.where((c) {
+            final d = c.createdAt.toLocal();
+            return d.year == targetDate.year &&
+                d.month == targetDate.month &&
+                d.day == targetDate.day;
+          }).toList();
+
+    // Group by location - get the latest daily inspection for each unique location
     final Map<String, ChecklistModel> latestByLocation = {};
-    for (final c in checklists) {
+    for (final c in activeChecklists) {
       final key = c.lokasi.trim();
       if (!latestByLocation.containsKey(key)) {
         latestByLocation[key] = c;
@@ -94,10 +104,12 @@ class MonitoringRepository {
     }
 
     final totalLokasi = latestByLocation.length;
-    final rataRataKepatuhan = totalLokasi > 0 ? (totalPersentase / totalLokasi) : 100.0;
+    final rataRataKepatuhan = totalLokasi > 0 ? (totalPersentase / totalLokasi) : 0.0;
 
     String statusKeseluruhan;
-    if (rataRataKepatuhan >= 80) {
+    if (totalLokasi == 0) {
+      statusKeseluruhan = 'Belum Ada Pemeriksaan pada Tanggal Ini';
+    } else if (rataRataKepatuhan >= 80) {
       statusKeseluruhan = 'Zona Hijau (Memenuhi Standar K3 Kesling)';
     } else if (rataRataKepatuhan >= 60) {
       statusKeseluruhan = 'Zona Kuning (Kondisi Sedang / Perlu Perhatian)';
@@ -106,12 +118,12 @@ class MonitoringRepository {
     }
 
     final Map<String, double> persentaseIndikator = {
-      'Pasokan Air Bersih': totalLokasi > 0 ? (airCount / totalLokasi) * 100.0 : 100.0,
-      'Kebersihan Fasilitas Toilet': totalLokasi > 0 ? (toiletCount / totalLokasi) * 100.0 : 100.0,
-      'Pengelolaan Tempat Sampah': totalLokasi > 0 ? (sampahCount / totalLokasi) * 100.0 : 100.0,
-      'Ventilasi & Kualitas Udara': totalLokasi > 0 ? (ventilasiCount / totalLokasi) * 100.0 : 100.0,
-      'Bebas Genangan & Vektor': totalLokasi > 0 ? (genanganCount / totalLokasi) * 100.0 : 100.0,
-      'Kebersihan Area Kerja Bersama': totalLokasi > 0 ? (kebersihanCount / totalLokasi) * 100.0 : 100.0,
+      'Pasokan Air Bersih': totalLokasi > 0 ? (airCount / totalLokasi) * 100.0 : 0.0,
+      'Kebersihan Fasilitas Toilet': totalLokasi > 0 ? (toiletCount / totalLokasi) * 100.0 : 0.0,
+      'Pengelolaan Tempat Sampah': totalLokasi > 0 ? (sampahCount / totalLokasi) * 100.0 : 0.0,
+      'Ventilasi & Kualitas Udara': totalLokasi > 0 ? (ventilasiCount / totalLokasi) * 100.0 : 0.0,
+      'Bebas Genangan & Vektor': totalLokasi > 0 ? (genanganCount / totalLokasi) * 100.0 : 0.0,
+      'Kebersihan Area Kerja Bersama': totalLokasi > 0 ? (kebersihanCount / totalLokasi) * 100.0 : 0.0,
     };
 
     final diproses = reports.where((r) => r.status.toLowerCase() == 'diproses').length;

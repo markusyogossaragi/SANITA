@@ -255,7 +255,7 @@ class _BerandaViewState extends State<BerandaView> {
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        'Status Lingkungan Kerja (Keseluruhan)',
+                                        'Status Lingkungan Kerja',
                                         style: TextStyle(fontSize: 11, color: isDark ? SanitaColors.darkTextMuted : SanitaColors.textMuted, fontWeight: FontWeight.w500),
                                       ),
                                       const SizedBox(height: 1),

@@ -674,15 +674,7 @@ class _ProfilViewState extends State<ProfilView> {
                                       final isDarkModeActive = currentMode == ThemeMode.dark;
                                       return SwitchListTile(
                                         title: const Text('Mode Gelap (Dark Theme)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-                                        subtitle: Text(
-                                          isDarkModeActive ? 'Tampilan gelap nyaman di mata' : 'Tampilan gelap nyaman di mata',
-                                          style: const TextStyle(fontSize: 11, color: SanitaColors.textMuted),
-                                        ),
-                                        secondary: Icon(
-                                          isDarkModeActive ? Icons.dark_mode : Icons.light_mode,
-                                          color: isDarkModeActive ? SanitaColors.accentAmber : SanitaColors.primary,
-                                          size: 20,
-                                        ),
+                                        subtitle: const Text('Tampilan gelap untuk kenyamanan mata Anda', style: TextStyle(fontSize: 11, color: SanitaColors.textMuted)),
                                         value: isDarkModeActive,
                                         activeColor: SanitaColors.primary,
                                         onChanged: (val) {
