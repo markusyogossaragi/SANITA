@@ -577,7 +577,7 @@ class _LaporLingkunganViewState extends State<LaporLingkunganView> {
                                           child: Container(
                                             padding: const EdgeInsets.all(6),
                                             decoration: const BoxDecoration(
-                                              color: Colors.black70,
+                                              color: Colors.black54,
                                               shape: BoxShape.circle,
                                             ),
                                             child: const Icon(Icons.close, color: Colors.white, size: 18),
@@ -590,7 +590,7 @@ class _LaporLingkunganViewState extends State<LaporLingkunganView> {
                                         child: Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                           decoration: BoxDecoration(
-                                            color: Colors.black70,
+                                            color: Colors.black54,
                                             borderRadius: BorderRadius.circular(6),
                                           ),
                                           child: const Row(
