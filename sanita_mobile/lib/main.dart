@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'core/theme/theme.dart';
+import 'core/theme/themeController.dart';
 import 'core/models/models.dart';
 import 'core/services/sessionService.dart';
 import 'feature/beranda/berandaView.dart';
@@ -12,8 +13,9 @@ import 'feature/monitoring/monitoringView.dart';
 import 'core/widgets/navbar.dart';
 import 'feature/splash/splashView.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await ThemeController.instance.init();
   runApp(const SanitaApp());
 }
 
@@ -22,11 +24,18 @@ class SanitaApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'SANITA',
-      debugShowCheckedModeBanner: false,
-      theme: SanitaTheme.lightTheme,
-      home: const SplashView(),
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: ThemeController.instance.themeModeNotifier,
+      builder: (context, currentMode, _) {
+        return MaterialApp(
+          title: 'SANITA',
+          debugShowCheckedModeBanner: false,
+          theme: SanitaTheme.lightTheme,
+          darkTheme: SanitaTheme.darkTheme,
+          themeMode: currentMode,
+          home: const SplashView(),
+        );
+      },
     );
   }
 }
@@ -64,11 +73,11 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       LaporanModel(
         id: 'SNT-2026-0104',
         jenisMasalah: 'Pengelolaan Sampah',
-        lokasi: 'Kantin Kampus Lt. 1',
+        lokasi: 'Kantin Kampus UNPRI Lt. 1',
         keterangan: 'Tempat sampah organik penuh dan penutup pedal perlu perbaikan.',
         status: 'selesai',
         urgensi: 'Sedang',
-        reporterName: 'Ribka Lusiana',
+        reporterName: 'Ribka Lusiana Harahap',
         createdAt: DateTime.now().subtract(const Duration(days: 1, hours: 2)).toIso8601String(),
         integrityHMAC: 'sha256-verified-tamper-proof',
       ),
@@ -90,7 +99,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         keterangan: 'Sirkulasi udara pengap dan kisi exhaust fan perlu dibersihkan dari debu.',
         status: 'terkirim',
         urgensi: 'Rendah',
-        reporterName: 'Sahabat SANITA',
+        reporterName: 'Pengawas Kesling',
         createdAt: DateTime.now().subtract(const Duration(minutes: 45)).toIso8601String(),
         integrityHMAC: 'sha256-verified-tamper-proof',
       ),
@@ -166,6 +175,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       ),
       ProfilView(
         onBackToHome: () => _onTabTapped(0),
+        reports: _reports,
+        onUpdateReportStatus: _updateReportStatus,
       ),
     ];
 

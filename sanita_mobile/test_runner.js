@@ -51,6 +51,7 @@ const requiredDirs = [
   'lib/feature/edukasi_kesling',
   'lib/feature/monitoring',
   'lib/feature/profil',
+  'lib/feature/admin',
   'test'
 ];
 

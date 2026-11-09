@@ -12,36 +12,51 @@ class CekSanitasiView extends StatefulWidget {
 }
 
 class _CekSanitasiViewState extends State<CekSanitasiView> {
-  // Default kosong, placeholder "Masukkan nama lokasi" abu-abu, ketika diisi jadi hitam
+  // Input lokasi bebas: default kosong, placeholder abu-abu "Masukkan nama lokasi"
   final TextEditingController _lokasiController = TextEditingController();
 
-  bool _airBersih = true;
-  bool _toiletBersih = true;
-  bool _tempatSampah = true;
-  bool _ventilasiUdara = true;
-  bool _bebasGenangan = true;
-  bool _kebersihanArea = true;
+  // 6 Butir Kriteria Pemeriksaan: DEFAULT = BELUM TERISI (null)
+  bool? _airBersih;
+  bool? _toiletBersih;
+  bool? _tempatSampah;
+  bool? _ventilasiUdara;
+  bool? _bebasGenangan;
+  bool? _kebersihanArea;
 
   bool _showResult = false;
   bool _isLoading = false;
   Map<String, dynamic>? _evalResult;
 
   final List<String> _quickLocations = [
-    'Pantry Lantai 2',
-    'Toilet Barat',
-    'Ruang Rapat A',
+    'Kantin UNPRI',
+    'Toilet Barat Lt. 2',
+    'Pantry Dosen',
     'Laboratorium Kesling',
-    'Kantin Kampus',
+    'Perpustakaan Lt. 3',
+    'Area Parkir Kampus',
   ];
 
+  /// Jumlah butir yang sudah diisi (tidak null)
+  int get _filledCount {
+    int c = 0;
+    if (_airBersih != null) c++;
+    if (_toiletBersih != null) c++;
+    if (_tempatSampah != null) c++;
+    if (_ventilasiUdara != null) c++;
+    if (_bebasGenangan != null) c++;
+    if (_kebersihanArea != null) c++;
+    return c;
+  }
+
+  /// Jumlah butir yang bernilai Memenuhi (true)
   int get _checkedCount {
     int c = 0;
-    if (_airBersih) c++;
-    if (_toiletBersih) c++;
-    if (_tempatSampah) c++;
-    if (_ventilasiUdara) c++;
-    if (_bebasGenangan) c++;
-    if (_kebersihanArea) c++;
+    if (_airBersih == true) c++;
+    if (_toiletBersih == true) c++;
+    if (_tempatSampah == true) c++;
+    if (_ventilasiUdara == true) c++;
+    if (_bebasGenangan == true) c++;
+    if (_kebersihanArea == true) c++;
     return c;
   }
 
@@ -73,18 +88,70 @@ class _CekSanitasiViewState extends State<CekSanitasiView> {
     });
   }
 
+  void _resetAll() {
+    setState(() {
+      _airBersih = null;
+      _toiletBersih = null;
+      _tempatSampah = null;
+      _ventilasiUdara = null;
+      _bebasGenangan = null;
+      _kebersihanArea = null;
+    });
+  }
+
   List<String> _getUncheckedPoints() {
     final list = <String>[];
-    if (!_airBersih) list.add('Pasokan air bersih perlu diperiksa kejernihan dan kelancaran alirannya.');
-    if (!_toiletBersih) list.add('Toilet membutuhkan pembersihan berkala dan pengisian sabun cair antiseptik.');
-    if (!_tempatSampah) list.add('Sediakan tempat sampah bertutup injak (pedal) dan terpilah organik/anorganik.');
-    if (!_ventilasiUdara) list.add('Buka ventilasi atau aktifkan exhaust fan untuk melancarkan sirkulasi udara.');
-    if (!_bebasGenangan) list.add('Bersihkan genangan air atau sampah berserakan guna mencegah vektor penyakit.');
-    if (!_kebersihanArea) list.add('Sapu dan pel area kerja agar bebas dari penumpukan debu dan kotoran.');
+    if (_airBersih != true) list.add('Pasokan air bersih perlu diperiksa kejernihan dan kelancaran alirannya.');
+    if (_toiletBersih != true) list.add('Toilet membutuhkan pembersihan berkala dan pengisian sabun cair antiseptik.');
+    if (_tempatSampah != true) list.add('Sediakan tempat sampah bertutup injak (pedal) dan terpilah organik/anorganik.');
+    if (_ventilasiUdara != true) list.add('Buka ventilasi atau aktifkan exhaust fan untuk melancarkan sirkulasi udara.');
+    if (_bebasGenangan != true) list.add('Bersihkan genangan air atau sampah berserakan guna mencegah vektor penyakit.');
+    if (_kebersihanArea != true) list.add('Sapu dan pel area kerja agar bebas dari penumpukan debu dan kotoran.');
     return list;
   }
 
   void _evaluasi() async {
+    if (_filledCount < 6) {
+      // Peringatan butir belum terisi
+      final uncompleted = 6 - _filledCount;
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: SanitaColors.accentAmber, size: 24),
+              SizedBox(width: 8),
+              Text('Kriteria Belum Lengkap', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: Text(
+            'Terdapat $uncompleted kriteria pemeriksaan yang belum terisi (belum ditentukan statusnya). Apakah ingin melanjutkan evaluasi parsial atau melengkapinya?',
+            style: const TextStyle(fontSize: 13, height: 1.4),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Lengkapi Dulu'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                _runEvaluasiProcess();
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: SanitaColors.primary),
+              child: const Text('Tetap Evaluasi'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    _runEvaluasiProcess();
+  }
+
+  void _runEvaluasiProcess() async {
     setState(() {
       _isLoading = true;
     });
@@ -93,12 +160,12 @@ class _CekSanitasiViewState extends State<CekSanitasiView> {
 
     final payload = {
       'lokasi': targetLokasi,
-      'air_bersih': _airBersih,
-      'toilet_bersih': _toiletBersih,
-      'tempat_sampah': _tempatSampah,
-      'ventilasi_udara': _ventilasiUdara,
-      'bebas_genangan': _bebasGenangan,
-      'kebersihan_area': _kebersihanArea,
+      'air_bersih': _airBersih == true,
+      'toilet_bersih': _toiletBersih == true,
+      'tempat_sampah': _tempatSampah == true,
+      'ventilasi_udara': _ventilasiUdara == true,
+      'bebas_genangan': _bebasGenangan == true,
+      'kebersihan_area': _kebersihanArea == true,
     };
 
     try {
@@ -153,50 +220,23 @@ class _CekSanitasiViewState extends State<CekSanitasiView> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Lokasi: $displayLokasi',
-              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: SanitaColors.textDark),
+            Text('Lokasi: $displayLokasi', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Skor Pemenuhan: $count / 6', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                Text('$percent%', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: isFull ? SanitaColors.primary : SanitaColors.accentAmber)),
+              ],
             ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: isFull ? SanitaColors.primarySurface : const Color(0xFFFEF3C7),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        isFull ? 'MEMENUHI STANDAR' : 'PERLU PERBAIKAN',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                          color: isFull ? SanitaColors.primaryDark : const Color(0xFF92400E),
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        '$count dari 6 butir terpenuhi ($percent%)',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: isFull ? SanitaColors.primaryDark : const Color(0xFF92400E),
-                        ),
-                      ),
-                    ],
-                  ),
-                  Text(
-                    '$percent%',
-                    style: TextStyle(
-                      fontSize: 26,
-                      fontWeight: FontWeight.bold,
-                      color: isFull ? SanitaColors.primary : const Color(0xFFB45309),
-                    ),
-                  ),
-                ],
+            const SizedBox(height: 6),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: count / 6.0,
+                minHeight: 8,
+                backgroundColor: SanitaColors.border,
+                valueColor: AlwaysStoppedAnimation<Color>(isFull ? SanitaColors.primary : SanitaColors.accentAmber),
               ),
             ),
             const SizedBox(height: 12),
@@ -234,14 +274,16 @@ class _CekSanitasiViewState extends State<CekSanitasiView> {
   @override
   Widget build(BuildContext context) {
     final count = _checkedCount;
-    final progress = count / 6.0;
+    final filled = _filledCount;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
+      backgroundColor: isDark ? SanitaColors.darkBackground : SanitaColors.background,
       body: SafeArea(
         child: Column(
           children: [
             // ==========================================
-            // HEADER STATIS (Posisi Tetap di Atas)
+            // HEADER STATIS
             // ==========================================
             Container(
               padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
@@ -301,12 +343,12 @@ class _CekSanitasiViewState extends State<CekSanitasiView> {
                   ),
                   const SizedBox(height: 12),
                   const Text(
-                    'Halo, Sahabat SANITA!',
+                    'Cek Standar Sanitasi Fisik',
                     style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 19),
                   ),
                   const SizedBox(height: 2),
                   const Text(
-                    'Yuk, jaga tempat kerja tetap bersih, sehat, dan aman.',
+                    'Periksa 6 standar kondisi kebersihan lingkungan kerja.',
                     style: TextStyle(color: Colors.white, fontSize: 12),
                   ),
                 ],
@@ -347,47 +389,53 @@ class _CekSanitasiViewState extends State<CekSanitasiView> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              'Cek Sanitasi',
-                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: SanitaColors.textDark),
-                            ),
-                            const SizedBox(height: 2),
-                            const Text(
-                              'Periksa 6 standar kondisi sanitasi fisik lingkungan kerja.',
-                              style: TextStyle(fontSize: 12, color: SanitaColors.textMuted),
-                            ),
-                            const SizedBox(height: 16),
-
-                            // Lokasi Pemeriksaan
+                            // Lokasi Pemeriksaan Bebas
                             const Text(
                               'Lokasi pemeriksaan',
-                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: SanitaColors.textDark),
+                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
                             ),
                             const SizedBox(height: 6),
                             TextField(
                               controller: _lokasiController,
-                              style: const TextStyle(
-                                color: SanitaColors.textDark, // Warna hitam saat diketik
+                              style: TextStyle(
+                                color: isDark ? Colors.white : SanitaColors.textDark,
                                 fontWeight: FontWeight.w600,
                                 fontSize: 14,
                               ),
                               decoration: InputDecoration(
                                 filled: true,
-                                fillColor: Colors.white,
-                                hintText: 'Masukkan nama lokasi', // Placeholder default abu-abu
+                                fillColor: isDark ? SanitaColors.darkCard : Colors.white,
+                                hintText: 'Masukkan nama lokasi (bebas)',
                                 hintStyle: TextStyle(
-                                  color: Colors.grey.shade400, // Abu-abu saat kosong
+                                  color: isDark ? SanitaColors.darkTextMuted : Colors.grey.shade400,
                                   fontWeight: FontWeight.normal,
                                   fontSize: 13,
                                 ),
                                 prefixIcon: const Icon(Icons.location_on_outlined, size: 20, color: SanitaColors.primary),
                                 contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: SanitaColors.border)),
-                                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: SanitaColors.border)),
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: isDark ? SanitaColors.darkBorder : SanitaColors.border)),
+                                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: isDark ? SanitaColors.darkBorder : SanitaColors.border)),
                               ),
                             ),
 
                             const SizedBox(height: 8),
+
+                            // Tulisan Lokasi Cepat ("Rekomendasi:")
+                            Row(
+                              children: [
+                                const Icon(Icons.flash_on, size: 14, color: SanitaColors.accentAmber),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Rekomendasi:',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: isDark ? SanitaColors.darkTextMuted : SanitaColors.textMuted,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
 
                             // Quick location chips
                             SingleChildScrollView(
@@ -398,8 +446,8 @@ class _CekSanitasiViewState extends State<CekSanitasiView> {
                                     padding: const EdgeInsets.only(right: 6),
                                     child: ActionChip(
                                       label: Text(loc, style: const TextStyle(fontSize: 11)),
-                                      backgroundColor: Colors.white,
-                                      side: const BorderSide(color: SanitaColors.border),
+                                      backgroundColor: isDark ? SanitaColors.darkCard : Colors.white,
+                                      side: BorderSide(color: isDark ? SanitaColors.darkBorder : SanitaColors.border),
                                       onPressed: () {
                                         setState(() {
                                           _lokasiController.text = loc;
@@ -417,9 +465,18 @@ class _CekSanitasiViewState extends State<CekSanitasiView> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text(
-                                  'Kriteria Pemeriksaan (6 Butir)',
-                                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: SanitaColors.textDark),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Kriteria Pemeriksaan (6 Butir)',
+                                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                                    ),
+                                    Text(
+                                      '$filled dari 6 kriteria telah ditentukan',
+                                      style: const TextStyle(fontSize: 11, color: SanitaColors.textMuted),
+                                    ),
+                                  ],
                                 ),
                                 Row(
                                   children: [
@@ -429,7 +486,7 @@ class _CekSanitasiViewState extends State<CekSanitasiView> {
                                     ),
                                     const Text(' | ', style: TextStyle(color: SanitaColors.textMuted)),
                                     GestureDetector(
-                                      onTap: () => _selectAll(false),
+                                      onTap: _resetAll,
                                       child: const Text('Reset', style: TextStyle(fontSize: 12, color: SanitaColors.alertRed, fontWeight: FontWeight.bold)),
                                     ),
                                   ],
@@ -438,109 +495,80 @@ class _CekSanitasiViewState extends State<CekSanitasiView> {
                             ),
                             const SizedBox(height: 10),
 
-                            // 6 Checkbox Items
-                            _buildCheckCard(
+                            // 6 Kriteria Cards (Default: Belum Terisi / null)
+                            _buildCriteriaCard(
                               icon: Icons.water_drop_outlined,
                               title: 'Air bersih tersedia dan layak digunakan',
                               subtitle: 'Jernih, tidak berbau, rasa tawar, dan mengalir kontinu.',
                               value: _airBersih,
-                              onChanged: (v) => setState(() => _airBersih = v!),
+                              onSelect: (v) => setState(() => _airBersih = v),
+                              isDark: isDark,
                             ),
-                            _buildCheckCard(
+                            _buildCriteriaCard(
                               icon: Icons.wc_outlined,
                               title: 'Toilet bersih dan berfungsi',
-                              subtitle: 'Kloset higienis, pembilas lancar, dan tersedia sabun cuci tangan.',
+                              subtitle: 'Tersedia air bilas, sabun cair antiseptik, dan kloset higienis.',
                               value: _toiletBersih,
-                              onChanged: (v) => setState(() => _toiletBersih = v!),
+                              onSelect: (v) => setState(() => _toiletBersih = v),
+                              isDark: isDark,
                             ),
-                            _buildCheckCard(
+                            _buildCriteriaCard(
                               icon: Icons.delete_outline,
                               title: 'Tempat sampah tersedia dan tertutup',
-                              subtitle: 'Wadah kedap air, berpedal injak, serta terpilah rapi.',
+                              subtitle: 'Tertutup rapat (pedal injak) dan terpilah organik/anorganik.',
                               value: _tempatSampah,
-                              onChanged: (v) => setState(() => _tempatSampah = v!),
+                              onSelect: (v) => setState(() => _tempatSampah = v),
+                              isDark: isDark,
                             ),
-                            _buildCheckCard(
-                              icon: Icons.air,
+                            _buildCriteriaCard(
+                              icon: Icons.air_outlined,
                               title: 'Ventilasi udara memadai',
-                              subtitle: 'Sirkulasi udara segar, jendela/exhaust fan aktif, tidak pengap.',
+                              subtitle: 'Sirkulasi udara segar lancar, tidak pengap dan berdebu.',
                               value: _ventilasiUdara,
-                              onChanged: (v) => setState(() => _ventilasiUdara = v!),
+                              onSelect: (v) => setState(() => _ventilasiUdara = v),
+                              isDark: isDark,
                             ),
-                            _buildCheckCard(
-                              icon: Icons.water_damage_outlined,
+                            _buildCriteriaCard(
+                              icon: Icons.waves_outlined,
                               title: 'Tidak ada genangan air atau sampah berserakan',
-                              subtitle: 'Lantai kering, drainase lancar, bebas jentik nyamuk.',
+                              subtitle: 'Saluran drainase lancar, bebas vektor jentik nyamuk dan lalat.',
                               value: _bebasGenangan,
-                              onChanged: (v) => setState(() => _bebasGenangan = v!),
+                              onSelect: (v) => setState(() => _bebasGenangan = v),
+                              isDark: isDark,
                             ),
-                            _buildCheckCard(
+                            _buildCriteriaCard(
                               icon: Icons.cleaning_services_outlined,
                               title: 'Area kerja terjaga kebersihannya',
-                              subtitle: 'Bebas penumpukan debu, tertata rapi, dan nyaman untuk beraktivitas.',
+                              subtitle: 'Lantai, meja, dan fasilitas tertata rapi serta rutin dibersihkan.',
                               value: _kebersihanArea,
-                              onChanged: (v) => setState(() => _kebersihanArea = v!),
+                              onSelect: (v) => setState(() => _kebersihanArea = v),
+                              isDark: isDark,
                             ),
 
                             const SizedBox(height: 16),
 
-                            // Penanda Progres
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  '$count dari 6 kondisi terpenuhi',
-                                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: SanitaColors.textDark),
+                            // Evaluasi Button
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton.icon(
+                                onPressed: _isLoading ? null : _evaluasi,
+                                icon: _isLoading
+                                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                                    : const Icon(Icons.analytics_outlined),
+                                label: Text(
+                                  filled < 6 ? 'Evaluasi Sanitasi ($filled/6 Kriteria Terisi)' : 'Lihat Hasil Evaluasi Lengkap',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                                 ),
-                                Text(
-                                  '${(progress * 100).round()}%',
-                                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: SanitaColors.primary),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(6),
-                              child: LinearProgressIndicator(
-                                value: progress,
-                                minHeight: 8,
-                                backgroundColor: Colors.grey.shade300,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  count == 6 ? SanitaColors.primary : (count >= 4 ? SanitaColors.accentAmber : SanitaColors.alertRed),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: SanitaColors.primary,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                 ),
                               ),
                             ),
 
                             const SizedBox(height: 20),
-
-                            // Button Evaluasi
-                            SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton(
-                                onPressed: _isLoading ? null : _evaluasi,
-                                child: _isLoading
-                                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                                    : const Text('Lihat Hasil Pemeriksaan'),
-                              ),
-                            ),
-
-                            const SizedBox(height: 16),
-
-                            // Catatan Simulasi Box
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.grey.shade100,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: const Text(
-                                'Catatan: checklist ini untuk simulasi tugas. Hasilnya bukan sertifikasi atau pemeriksaan resmi.',
-                                style: TextStyle(fontSize: 11, color: SanitaColors.textMuted, fontStyle: FontStyle.italic),
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
-
-                            const SizedBox(height: 30),
                           ],
                         ),
                       ),
@@ -555,42 +583,122 @@ class _CekSanitasiViewState extends State<CekSanitasiView> {
     );
   }
 
-  Widget _buildCheckCard({
+  Widget _buildCriteriaCard({
     required IconData icon,
     required String title,
     required String subtitle,
-    required bool value,
-    required ValueChanged<bool?> onChanged,
+    required bool? value,
+    required Function(bool) onSelect,
+    required bool isDark,
   }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Container(
+    Color cardBorder;
+    Widget statusBadge;
+
+    if (value == null) {
+      cardBorder = isDark ? SanitaColors.darkBorder : SanitaColors.border;
+      statusBadge = Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: value ? SanitaColors.primary.withOpacity(0.5) : SanitaColors.border,
-            width: value ? 1.5 : 1.0,
-          ),
+          color: Colors.grey.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(6),
         ),
-        child: CheckboxListTile(
-          value: value,
-          onChanged: onChanged,
-          activeColor: SanitaColors.primary,
-          dense: false,
-          secondary: Icon(icon, color: value ? SanitaColors.primary : SanitaColors.textMuted),
-          title: Text(
-            title,
-            style: TextStyle(
-              fontSize: 13,
-              color: SanitaColors.textDark,
-              fontWeight: value ? FontWeight.bold : FontWeight.w500,
+        child: const Text(
+          'Belum Terisi',
+          style: TextStyle(fontSize: 10, color: SanitaColors.textMuted, fontWeight: FontWeight.bold),
+        ),
+      );
+    } else if (value == true) {
+      cardBorder = SanitaColors.primary.withOpacity(0.5);
+      statusBadge = Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: SanitaColors.primarySurface,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: const Text(
+          '✓ Memenuhi',
+          style: TextStyle(fontSize: 10, color: SanitaColors.primary, fontWeight: FontWeight.bold),
+        ),
+      );
+    } else {
+      cardBorder = SanitaColors.alertRed.withOpacity(0.5);
+      statusBadge = Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: SanitaColors.alertRed.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: const Text(
+          '✗ Belum Memenuhi',
+          style: TextStyle(fontSize: 10, color: SanitaColors.alertRed, fontWeight: FontWeight.bold),
+        ),
+      );
+    }
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      color: isDark ? SanitaColors.darkCard : Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(color: cardBorder, width: value != null ? 1.5 : 1.0),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(icon, color: value == true ? SanitaColors.primary : (value == false ? SanitaColors.alertRed : SanitaColors.textMuted), size: 22),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                      const SizedBox(height: 2),
+                      Text(subtitle, style: const TextStyle(fontSize: 11, color: SanitaColors.textMuted)),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 6),
+                statusBadge,
+              ],
             ),
-          ),
-          subtitle: Text(
-            subtitle,
-            style: const TextStyle(fontSize: 11, color: SanitaColors.textMuted),
-          ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => onSelect(true),
+                    style: OutlinedButton.styleFrom(
+                      backgroundColor: value == true ? SanitaColors.primary : null,
+                      foregroundColor: value == true ? Colors.white : (isDark ? Colors.white70 : SanitaColors.textDark),
+                      side: BorderSide(color: value == true ? SanitaColors.primary : (isDark ? SanitaColors.darkBorder : SanitaColors.border)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                    ),
+                    child: const Text('✓ Memenuhi', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => onSelect(false),
+                    style: OutlinedButton.styleFrom(
+                      backgroundColor: value == false ? SanitaColors.alertRed : null,
+                      foregroundColor: value == false ? Colors.white : (isDark ? Colors.white70 : SanitaColors.textDark),
+                      side: BorderSide(color: value == false ? SanitaColors.alertRed : (isDark ? SanitaColors.darkBorder : SanitaColors.border)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                    ),
+                    child: const Text('✗ Belum Memenuhi', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );

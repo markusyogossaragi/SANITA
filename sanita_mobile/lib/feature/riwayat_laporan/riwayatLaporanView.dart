@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import '../../core/theme/theme.dart';
 import '../../core/models/models.dart';
@@ -143,6 +144,17 @@ class _RiwayatLaporanViewState extends State<RiwayatLaporanView> {
                 style: const TextStyle(fontSize: 13, color: SanitaColors.textDark, height: 1.4),
               ),
             ),
+            if (report.fotoUrl != null && report.fotoUrl!.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              const Text('Bukti Foto:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: SanitaColors.textDark)),
+              const SizedBox(height: 6),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: report.fotoUrl!.startsWith('assets/')
+                    ? Image.asset(report.fotoUrl!, height: 160, width: double.infinity, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.image))
+                    : Image.file(File(report.fotoUrl!), height: 160, width: double.infinity, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.broken_image)),
+              ),
+            ],
             const SizedBox(height: 18),
 
             // Stepper Pelacakan

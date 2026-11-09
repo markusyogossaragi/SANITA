@@ -24,26 +24,15 @@ func NewUserRepository(db *sql.DB) *UserRepository {
 }
 
 func (r *UserRepository) seedInitialUsers() {
-	// Seed demo user matching SANITA.pdf
-	demoUser := &models.User{
-		ID:        "usr-demo-001",
-		Username:  "sahabat_sanita",
-		FullName:  "Sahabat SANITA",
-		Role:      models.RoleUser,
-		Password:  "$2a$12$eAnm6N6cM6X9dF0YVfWfveUqgQx/kZk7B1Bw6gZ5iI6n2zE/fAOWS", // "sanita2026"
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
-	}
 	adminUser := &models.User{
-		ID:        "usr-admin-001",
-		Username:  "admin_kesling",
-		FullName:  "Pengawas Kesling Utama",
+		ID:        "usr-admin-ribka-243301631022",
+		Username:  "ribka",
+		FullName:  "Ribka Lusiana Harahap",
 		Role:      models.RoleAdmin,
-		Password:  "$2a$12$eAnm6N6cM6X9dF0YVfWfveUqgQx/kZk7B1Bw6gZ5iI6n2zE/fAOWS", // "sanita2026"
+		Password:  "$2a$12$eAnm6N6cM6X9dF0YVfWfveUqgQx/kZk7B1Bw6gZ5iI6n2zE/fAOWS", // "password123" / "sanita2026"
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}
-	r.cache[demoUser.Username] = demoUser
 	r.cache[adminUser.Username] = adminUser
 }
 

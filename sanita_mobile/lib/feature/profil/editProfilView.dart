@@ -23,6 +23,7 @@ class _EditProfilViewState extends State<EditProfilView> {
   final _authRepo = AuthRepository();
 
   final List<String> _roleOptions = [
+    'Admin',
     'Inspektur Kesling',
     'Inspektur Sanitasi & K3',
     'Koordinator Sanitasi',
@@ -75,6 +76,7 @@ class _EditProfilViewState extends State<EditProfilView> {
       role: _selectedRole,
       email: newEmail.isNotEmpty ? newEmail : widget.currentUser.email,
       phone: newPhone.isNotEmpty ? newPhone : widget.currentUser.phone,
+      avatarUrl: widget.currentUser.avatarUrl,
     );
 
     try {

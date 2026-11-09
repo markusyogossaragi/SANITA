@@ -70,8 +70,10 @@ class _BerandaViewState extends State<BerandaView> {
   @override
   Widget build(BuildContext context) {
     final activeTip = _tipsSanitasi[_currentTipIndex];
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
+      backgroundColor: isDark ? SanitaColors.darkBackground : SanitaColors.background,
       body: SafeArea(
         child: Column(
           children: [
@@ -209,9 +211,9 @@ class _BerandaViewState extends State<BerandaView> {
                         child: Container(
                           padding: const EdgeInsets.all(14),
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: isDark ? SanitaColors.darkCard : Colors.white,
                             borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: SanitaColors.border),
+                            border: Border.all(color: isDark ? SanitaColors.darkBorder : SanitaColors.border),
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.black.withOpacity(0.02),
@@ -469,15 +471,16 @@ class _BerandaViewState extends State<BerandaView> {
     required String desc,
     required VoidCallback onTap,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(14),
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: isDark ? SanitaColors.darkCard : Colors.white,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: SanitaColors.border, width: 1),
+          border: Border.all(color: isDark ? SanitaColors.darkBorder : SanitaColors.border, width: 1),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.02),

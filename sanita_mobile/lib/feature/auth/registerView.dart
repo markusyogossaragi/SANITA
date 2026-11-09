@@ -100,8 +100,9 @@ class _RegisterViewState extends State<RegisterView> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: isDark ? SanitaColors.darkBackground : Colors.white,
       appBar: AppBar(
         title: const Text('Daftar Akun SANITA', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
       ),

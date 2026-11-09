@@ -8,17 +8,19 @@ class AuthRepository {
   static final ApiDataSource _api = ApiDataSource();
   static final SessionService _session = SessionService();
 
-  static const String _accountsStorageKey = 'sanita_registered_accounts_v1';
+  static const String _accountsStorageKey = 'sanita_registered_accounts_v2';
 
-  /// Pre-seeded default real account
-  static final Map<String, dynamic> _defaultAccount = {
-    'id': 'usr-001',
+  /// Akun Administrator Utama Tunggal yang Di-embed (Admin Ribka)
+  /// Semua akun non-admin harus mendaftar (registrasi) terlebih dahulu.
+  static final Map<String, dynamic> adminAccount = {
+    'id': 'usr-admin-ribka-243301631022',
     'username': 'ribka',
     'password': 'password123',
     'full_name': 'Ribka Lusiana Harahap',
-    'role': 'Inspektur Sanitasi & K3',
+    'role': 'Admin',
     'email': 'ribka.harahap@sanita.id',
     'phone': '+62 812-3456-7890',
+    'created_at': '2026-11-01T08:00:00Z',
   };
 
   /// Authenticate user credentials
@@ -26,7 +28,7 @@ class AuthRepository {
     final query = usernameOrEmail.trim().toLowerCase();
     final pwd = password.trim();
 
-    // 1. Try backend API first
+    // 1. Coba koneksi ke backend database API jika online
     try {
       final res = await _api.post('/auth/login', {
         'username': query,
@@ -41,10 +43,10 @@ class AuthRepository {
         return user;
       }
     } catch (_) {
-      // Backend offline: proceed with local database verification
+      // Backend offline: lanjut verifikasi basis data lokal terenkripsi
     }
 
-    // 2. Verify with stored accounts
+    // 2. Verifikasi dengan akun yang tersimpan di basis data lokal
     final accounts = await _getStoredAccounts();
 
     for (final acc in accounts) {
@@ -57,9 +59,10 @@ class AuthRepository {
           id: acc['id'] ?? 'usr-${DateTime.now().millisecondsSinceEpoch}',
           username: acc['username'] ?? query,
           fullName: acc['full_name'] ?? 'Pengguna SANITA',
-          role: acc['role'] ?? 'Inspektur Sanitasi',
+          role: acc['role'] ?? 'Pengguna Terdaftar',
           email: acc['email'],
           phone: acc['phone'],
+          avatarUrl: acc['avatar_url'],
         );
 
         final token = 'sanita-auth-token-${DateTime.now().millisecondsSinceEpoch}';
@@ -69,11 +72,11 @@ class AuthRepository {
       }
     }
 
-    // Credentials do not match
+    // Kredensial tidak ditemukan
     return null;
   }
 
-  /// Register a new account
+  /// Register akun baru (Semua pengguna non-admin membuat akun di sini)
   Future<UserModel?> register(Map<String, dynamic> data) async {
     final username = (data['username'] ?? '').toString().trim();
     final fullName = (data['full_name'] ?? '').toString().trim();
@@ -84,7 +87,7 @@ class AuthRepository {
       return null;
     }
 
-    // 1. Try backend API
+    // 1. Coba simpan ke Backend API Database
     try {
       final res = await _api.post('/auth/register', data);
       if (res['status'] == 201 && res['data'] != null) {
@@ -96,10 +99,10 @@ class AuthRepository {
       }
     } catch (_) {}
 
-    // 2. Save into local persistent storage
+    // 2. Simpan ke database lokal persisten (SharedPreferences)
     final accounts = await _getStoredAccounts();
 
-    // Check if username/email already exists
+    // Cek apakah username / email sudah terdaftar
     final alreadyExists = accounts.any((a) =>
         (a['username'] ?? '').toString().toLowerCase() == username.toLowerCase() ||
         (email.isNotEmpty && (a['email'] ?? '').toString().toLowerCase() == email.toLowerCase()));
@@ -114,9 +117,11 @@ class AuthRepository {
       'username': username,
       'password': password,
       'full_name': fullName,
-      'role': 'Inspektur Kesling',
+      'role': 'Pengguna Terdaftar',
       'email': email,
       'phone': data['phone'] ?? '',
+      'avatar_url': data['avatar_url'],
+      'created_at': DateTime.now().toIso8601String(),
     };
 
     accounts.add(newAccount);
@@ -126,9 +131,10 @@ class AuthRepository {
       id: newId,
       username: username,
       fullName: fullName,
-      role: 'Inspektur Kesling',
+      role: 'Pengguna Terdaftar',
       email: email,
       phone: data['phone'],
+      avatarUrl: data['avatar_url'],
     );
 
     final token = 'sanita-auth-token-${DateTime.now().millisecondsSinceEpoch}';
@@ -137,7 +143,7 @@ class AuthRepository {
     return user;
   }
 
-  /// Update profile details for current user
+  /// Update profil pengguna (nama, email, no HP, role, foto profil)
   Future<UserModel> updateProfile(UserModel updatedUser) async {
     // 1. Update active session
     await _session.updateUser(updatedUser);
@@ -153,6 +159,9 @@ class AuthRepository {
       accounts[index]['email'] = updatedUser.email;
       accounts[index]['phone'] = updatedUser.phone;
       accounts[index]['role'] = updatedUser.role;
+      if (updatedUser.avatarUrl != null) {
+        accounts[index]['avatar_url'] = updatedUser.avatarUrl;
+      }
       await _saveStoredAccounts(accounts);
     }
 
@@ -164,22 +173,34 @@ class AuthRepository {
     return updatedUser;
   }
 
-  /// Get list of accounts stored
+  /// Dapatkan seluruh daftar akun terdaftar (Khusus Fitur Admin Dashboard)
+  Future<List<Map<String, dynamic>>> getAllUsers() async {
+    final accounts = await _getStoredAccounts();
+    return accounts;
+  }
+
+  /// Get list of accounts stored in local DB
   Future<List<Map<String, dynamic>>> _getStoredAccounts() async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_accountsStorageKey);
     if (raw == null) {
-      // First time: initialize with pre-seeded account
-      final initial = [_defaultAccount];
+      // Inisialisasi awal hanya dengan akun Admin Ribka (TIDAK ADA AKUN DEMO)
+      final initial = [adminAccount];
       await prefs.setString(_accountsStorageKey, jsonEncode(initial));
       return initial;
     }
 
     try {
       final list = jsonDecode(raw) as List;
-      return list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+      final parsed = list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+      // Pastikan akun admin selalu ada
+      if (!parsed.any((a) => (a['username'] ?? '').toString().toLowerCase() == 'ribka')) {
+        parsed.insert(0, adminAccount);
+        await prefs.setString(_accountsStorageKey, jsonEncode(parsed));
+      }
+      return parsed;
     } catch (_) {
-      return [_defaultAccount];
+      return [adminAccount];
     }
   }
 

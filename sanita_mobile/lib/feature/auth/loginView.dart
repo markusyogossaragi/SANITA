@@ -12,11 +12,27 @@ class LoginView extends StatefulWidget {
 }
 
 class _LoginViewState extends State<LoginView> {
-  final _usernameCtrl = TextEditingController(text: 'ribka');
-  final _passwordCtrl = TextEditingController(text: 'password123');
+  // Default kosong agar pengguna mengisi sendiri atau menggunakan kredensial admin
+  final _usernameCtrl = TextEditingController();
+  final _passwordCtrl = TextEditingController();
   bool _isLoading = false;
   bool _obscurePassword = true;
   final _authRepo = AuthRepository();
+
+  void _useAdminCredentials() {
+    setState(() {
+      _usernameCtrl.text = 'ribka';
+      _passwordCtrl.text = 'password123';
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        backgroundColor: SanitaColors.primary,
+        behavior: SnackBarBehavior.floating,
+        content: Text('Kredensial Admin Ribka terisi otomatis.'),
+        duration: Duration(seconds: 1),
+      ),
+    );
+  }
 
   void _login() async {
     final query = _usernameCtrl.text.trim();
@@ -50,7 +66,7 @@ class _LoginViewState extends State<LoginView> {
           MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
         );
       } else {
-        _showError('Username atau password salah. Silakan periksa kembali.');
+        _showError('Username atau password tidak cocok dalam basis data.');
       }
     } catch (e) {
       setState(() => _isLoading = false);
@@ -77,21 +93,23 @@ class _LoginViewState extends State<LoginView> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: isDark ? SanitaColors.darkBackground : Colors.white,
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
               Center(
                 child: Container(
                   width: 84,
                   height: 84,
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: isDark ? SanitaColors.darkCard : Colors.white,
                     borderRadius: BorderRadius.circular(22),
                     boxShadow: [
                       BoxShadow(
@@ -116,7 +134,7 @@ class _LoginViewState extends State<LoginView> {
               const Center(
                 child: Text(
                   'Masuk ke SANITA',
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: SanitaColors.textDark),
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
                 ),
               ),
               const SizedBox(height: 4),
@@ -126,42 +144,88 @@ class _LoginViewState extends State<LoginView> {
                   style: TextStyle(fontSize: 13, color: SanitaColors.textMuted),
                 ),
               ),
-              const SizedBox(height: 36),
+              const SizedBox(height: 24),
+
+              // Embedded Admin Credentials Card
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: isDark ? SanitaColors.darkCard : SanitaColors.primarySurface,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: SanitaColors.primary.withOpacity(0.3)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Row(
+                          children: [
+                            Icon(Icons.admin_panel_settings, color: SanitaColors.primary, size: 18),
+                            SizedBox(width: 6),
+                            Text('Akun Administrator Utama:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: SanitaColors.primary)),
+                          ],
+                        ),
+                        InkWell(
+                          onTap: _useAdminCredentials,
+                          child: const Text('Isi Cepat →', style: TextStyle(color: SanitaColors.primary, fontWeight: FontWeight.bold, fontSize: 11)),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    const Text('• Username: ribka', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                    const Text('• Password: password123', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 4),
+                    const Text('*Pengguna lain harus mendaftar (buat akun) terlebih dahulu.', style: TextStyle(fontSize: 10, color: SanitaColors.textMuted)),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 24),
 
               // Username / Email Field
-              const Text('Username atau Email', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: SanitaColors.textDark)),
+              const Text('Username atau Email', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
               const SizedBox(height: 6),
               TextField(
                 controller: _usernameCtrl,
+                style: TextStyle(color: isDark ? Colors.white : SanitaColors.textDark, fontSize: 14),
                 decoration: InputDecoration(
                   hintText: 'Masukkan username atau email Anda',
+                  hintStyle: const TextStyle(fontSize: 13),
                   prefixIcon: const Icon(Icons.person_outline, size: 20, color: SanitaColors.primary),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: SanitaColors.border)),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: SanitaColors.border)),
+                  filled: true,
+                  fillColor: isDark ? SanitaColors.darkCard : Colors.white,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: isDark ? SanitaColors.darkBorder : SanitaColors.border)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: isDark ? SanitaColors.darkBorder : SanitaColors.border)),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 ),
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 16),
 
               // Password Field
-              const Text('Password', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: SanitaColors.textDark)),
+              const Text('Password', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
               const SizedBox(height: 6),
               TextField(
                 controller: _passwordCtrl,
                 obscureText: _obscurePassword,
+                style: TextStyle(color: isDark ? Colors.white : SanitaColors.textDark, fontSize: 14),
                 decoration: InputDecoration(
                   hintText: 'Masukkan password Anda',
+                  hintStyle: const TextStyle(fontSize: 13),
                   prefixIcon: const Icon(Icons.lock_outline, size: 20, color: SanitaColors.primary),
+                  filled: true,
+                  fillColor: isDark ? SanitaColors.darkCard : Colors.white,
                   suffixIcon: IconButton(
                     icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility, size: 20, color: SanitaColors.textMuted),
                     onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                   ),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: SanitaColors.border)),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: SanitaColors.border)),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: isDark ? SanitaColors.darkBorder : SanitaColors.border)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: isDark ? SanitaColors.darkBorder : SanitaColors.border)),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 ),
               ),
-              const SizedBox(height: 28),
+              const SizedBox(height: 26),
 
               // Login Button
               ElevatedButton(
@@ -176,7 +240,7 @@ class _LoginViewState extends State<LoginView> {
                     : const Text('Masuk ke Aplikasi', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Colors.white)),
               ),
 
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
 
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -186,7 +250,7 @@ class _LoginViewState extends State<LoginView> {
                     onPressed: () {
                       Navigator.push(context, MaterialPageRoute(builder: (_) => const RegisterView()));
                     },
-                    child: const Text('Daftar di sini', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: SanitaColors.primary)),
+                    child: const Text('Daftar Akun Baru', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: SanitaColors.primary)),
                   ),
                 ],
               ),

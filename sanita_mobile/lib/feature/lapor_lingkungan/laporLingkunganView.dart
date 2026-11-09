@@ -1,9 +1,12 @@
+import 'dart:io';
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../core/theme/theme.dart';
 import '../../core/models/models.dart';
 import '../../core/datasources/apiDataSource.dart';
 import '../../core/services/securityService.dart';
+import '../../core/services/sessionService.dart';
 import '../../core/utils/inputSanitizer.dart';
 
 class LaporLingkunganView extends StatefulWidget {
@@ -26,7 +29,8 @@ class _LaporLingkunganViewState extends State<LaporLingkunganView> {
   final TextEditingController _lokasiController = TextEditingController();
   final TextEditingController _keteranganController = TextEditingController();
   String _selectedUrgensi = 'Sedang';
-  String? _attachedFileName;
+  File? _pickedImage;
+  String? _pickedImagePath;
   bool _isSubmitting = false;
 
   final List<String> _kategoriMasalah = [
@@ -43,9 +47,9 @@ class _LaporLingkunganViewState extends State<LaporLingkunganView> {
   final List<String> _quickLocations = [
     'Pantry Lt. 2',
     'Toilet Barat Lt. 1',
-    'Kantin Kampus',
+    'Kantin Kampus UNPRI',
     'Ruang Rapat Utama',
-    'Koridor Barat',
+    'Koridor Barat Lt. 2',
     'Laboratorium Kesling',
   ];
 
@@ -55,7 +59,7 @@ class _LaporLingkunganViewState extends State<LaporLingkunganView> {
       _resetForm();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Form laporan lingkungan diperbarui'),
+          content: Text('Form pelaporan disetel ulang'),
           duration: Duration(seconds: 1),
           behavior: SnackBarBehavior.floating,
         ),
@@ -63,9 +67,81 @@ class _LaporLingkunganViewState extends State<LaporLingkunganView> {
     }
   }
 
+  void _showPhotoSourceSheet() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Unggah Bukti Foto Lapangan', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              const SizedBox(height: 12),
+              ListTile(
+                leading: const CircleAvatar(
+                  backgroundColor: SanitaColors.primarySurface,
+                  child: Icon(Icons.camera_alt, color: SanitaColors.primary),
+                ),
+                title: const Text('Ambil Foto dari Kamera', style: TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: const Text('Buka kamera untuk memotret kondisi saat ini', style: TextStyle(fontSize: 12)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickImage(ImageSource.camera);
+                },
+              ),
+              ListTile(
+                leading: const CircleAvatar(
+                  backgroundColor: SanitaColors.primarySurface,
+                  child: Icon(Icons.photo_library, color: SanitaColors.primary),
+                ),
+                title: const Text('Pilih dari Galeri', style: TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: const Text('Pilih foto bukti dari galeri perangkat', style: TextStyle(fontSize: 12)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickImage(ImageSource.gallery);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _pickImage(ImageSource source) async {
+    try {
+      final picker = ImagePicker();
+      final picked = await picker.pickImage(
+        source: source,
+        maxWidth: 1200,
+        maxHeight: 1200,
+        imageQuality: 80,
+      );
+      if (picked != null) {
+        setState(() {
+          _pickedImage = File(picked.path);
+          _pickedImagePath = picked.path;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal mengambil foto: $e'),
+            backgroundColor: SanitaColors.alertRed,
+          ),
+        );
+      }
+    }
+  }
+
   void _kirimLaporan() async {
     if (_selectedMasalah == null) {
-      _showWarning('Pilih jenis permasalahan terlebih dahulu.');
+      _showWarning('Pilih kategori permasalahan lingkungan terlebih dahulu.');
       return;
     }
     if (_lokasiController.text.trim().isEmpty) {
@@ -80,6 +156,9 @@ class _LaporLingkunganViewState extends State<LaporLingkunganView> {
     setState(() {
       _isSubmitting = true;
     });
+
+    final currentUser = await SessionService().getUser();
+    final reporterName = currentUser?.fullName ?? 'Sahabat SANITA';
 
     final sanitizedLokasi = InputSanitizer.sanitize(_lokasiController.text.trim());
     final sanitizedKeterangan = InputSanitizer.sanitize(_keteranganController.text.trim());
@@ -105,8 +184,8 @@ class _LaporLingkunganViewState extends State<LaporLingkunganView> {
       keterangan: sanitizedKeterangan,
       status: 'terkirim',
       urgensi: _selectedUrgensi,
-      fotoUrl: _attachedFileName != null ? 'assets/images/sample_report.jpg' : null,
-      reporterName: 'Sahabat SANITA',
+      fotoUrl: _pickedImagePath,
+      reporterName: reporterName,
       createdAt: nowIso,
       integrityHMAC: hmacSignature,
     );
@@ -162,19 +241,60 @@ class _LaporLingkunganViewState extends State<LaporLingkunganView> {
             const SizedBox(height: 16),
             const Text(
               'Laporan Berhasil Terkirim!',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: SanitaColors.textDark),
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: SanitaColors.textDark),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
-            Text(
-              'Nomor Tiket: ${report.id}',
-              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: SanitaColors.primary),
-            ),
-            const SizedBox(height: 6),
             const Text(
-              'Laporan Anda telah dicatat ke sistem monitoring tim sanitasi lingkungan kerja.',
+              'Tiket pengaduan telah dicatat dalam basis data SANITA dengan tanda tangan integritas digital.',
               style: TextStyle(fontSize: 12, color: SanitaColors.textMuted, height: 1.4),
               textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: SanitaColors.background,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: SanitaColors.border),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Nomor Tiket:', style: TextStyle(fontSize: 12, color: SanitaColors.textMuted)),
+                      Text(report.id, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: SanitaColors.primary)),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Kategori:', style: TextStyle(fontSize: 12, color: SanitaColors.textMuted)),
+                      Text(report.jenisMasalah, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Lokasi:', style: TextStyle(fontSize: 12, color: SanitaColors.textMuted)),
+                      Text(report.lokasi, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                  if (report.fotoUrl != null) ...[
+                    const SizedBox(height: 4),
+                    const Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Foto Bukti:', style: TextStyle(fontSize: 12, color: SanitaColors.textMuted)),
+                        Text('Terlampir (1 Foto)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: SanitaColors.primary)),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
             ),
           ],
         ),
@@ -187,7 +307,11 @@ class _LaporLingkunganViewState extends State<LaporLingkunganView> {
                 _resetForm();
                 widget.onReportSubmitted(report);
               },
-              child: const Text('Buka Riwayat Laporan'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: SanitaColors.primary,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              child: const Text('Buka Riwayat Laporan', style: TextStyle(fontWeight: FontWeight.bold)),
             ),
           ),
         ],
@@ -201,18 +325,22 @@ class _LaporLingkunganViewState extends State<LaporLingkunganView> {
       _lokasiController.clear();
       _keteranganController.clear();
       _selectedUrgensi = 'Sedang';
-      _attachedFileName = null;
+      _pickedImage = null;
+      _pickedImagePath = null;
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
+      backgroundColor: isDark ? SanitaColors.darkBackground : SanitaColors.background,
       body: SafeArea(
         child: Column(
           children: [
             // ==========================================
-            // HEADER STATIS (Posisi Tetap di Atas)
+            // HEADER STATIS
             // ==========================================
             Container(
               padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
@@ -272,12 +400,12 @@ class _LaporLingkunganViewState extends State<LaporLingkunganView> {
                   ),
                   const SizedBox(height: 12),
                   const Text(
-                    'Halo, Sahabat SANITA!',
+                    'Lapor Masalah Lingkungan',
                     style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 19),
                   ),
                   const SizedBox(height: 2),
                   const Text(
-                    'Yuk, jaga tempat kerja tetap bersih, sehat, dan aman.',
+                    'Laporkan temuan sanitasi untuk segera ditindaklanjuti.',
                     style: TextStyle(color: Colors.white, fontSize: 12),
                   ),
                 ],
@@ -320,99 +448,49 @@ class _LaporLingkunganViewState extends State<LaporLingkunganView> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
-                                'Lapor Lingkungan',
-                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: SanitaColors.textDark),
-                              ),
-                              const SizedBox(height: 2),
-                              const Text(
-                                'Bantu pengelola mengetahui dan menindaklanjuti masalah sanitasi.',
-                                style: TextStyle(fontSize: 12, color: SanitaColors.textMuted),
-                              ),
-                              const SizedBox(height: 18),
-
                               // Jenis Permasalahan
-                              const Text(
-                                'Jenis permasalahan',
-                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: SanitaColors.textDark),
-                              ),
+                              const Text('Jenis Permasalahan *', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
                               const SizedBox(height: 6),
                               DropdownButtonFormField<String>(
                                 value: _selectedMasalah,
-                                hint: const Text('Pilih kategori masalah sanitasi', style: TextStyle(fontSize: 13, color: SanitaColors.textMuted)),
                                 decoration: InputDecoration(
                                   filled: true,
-                                  fillColor: Colors.white,
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: SanitaColors.border)),
-                                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: SanitaColors.border)),
+                                  fillColor: isDark ? SanitaColors.darkCard : Colors.white,
+                                  hintText: 'Pilih jenis kendala sanitasi',
+                                  prefixIcon: const Icon(Icons.category_outlined, size: 20, color: SanitaColors.primary),
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: isDark ? SanitaColors.darkBorder : SanitaColors.border)),
+                                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: isDark ? SanitaColors.darkBorder : SanitaColors.border)),
                                 ),
-                                items: _kategoriMasalah.map((m) {
-                                  return DropdownMenuItem<String>(
-                                    value: m,
-                                    child: Text(m, style: const TextStyle(fontSize: 13)),
+                                items: _kategoriMasalah.map((cat) {
+                                  return DropdownMenuItem(
+                                    value: cat,
+                                    child: Text(cat, style: const TextStyle(fontSize: 13)),
                                   );
                                 }).toList(),
-                                onChanged: (val) {
-                                  setState(() {
-                                    _selectedMasalah = val;
-                                  });
-                                },
-                              ),
-
-                              const SizedBox(height: 16),
-
-                              // Tingkat Urgensi Selector
-                              const Text(
-                                'Tingkat Urgensi Penanganan',
-                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: SanitaColors.textDark),
-                              ),
-                              const SizedBox(height: 8),
-                              Row(
-                                children: [
-                                  _buildUrgencyChip('Rendah', Colors.blue.shade600),
-                                  const SizedBox(width: 8),
-                                  _buildUrgencyChip('Sedang', SanitaColors.accentAmber),
-                                  const SizedBox(width: 8),
-                                  _buildUrgencyChip('Mendesak', SanitaColors.alertRed),
-                                ],
+                                onChanged: (v) => setState(() => _selectedMasalah = v),
                               ),
 
                               const SizedBox(height: 16),
 
                               // Lokasi Kejadian
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  const Text(
-                                    'Lokasi kejadian',
-                                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: SanitaColors.textDark),
-                                  ),
-                                  const Text(
-                                    'Pilih cepat di bawah:',
-                                    style: TextStyle(fontSize: 11, color: SanitaColors.textMuted),
-                                  ),
-                                ],
-                              ),
+                              const Text('Lokasi Kejadian *', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
                               const SizedBox(height: 6),
                               TextField(
                                 controller: _lokasiController,
-                                style: const TextStyle(color: SanitaColors.textDark, fontWeight: FontWeight.w600, fontSize: 13),
+                                style: TextStyle(color: isDark ? Colors.white : SanitaColors.textDark, fontSize: 14),
                                 decoration: InputDecoration(
-                                  hintText: 'Contoh: Area pantry lantai 2',
-                                  hintStyle: TextStyle(color: Colors.grey.shade400, fontWeight: FontWeight.normal),
-                                  prefixIcon: const Icon(Icons.location_on_outlined, size: 20, color: SanitaColors.primary),
                                   filled: true,
-                                  fillColor: Colors.white,
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: SanitaColors.border)),
-                                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: SanitaColors.border)),
+                                  fillColor: isDark ? SanitaColors.darkCard : Colors.white,
+                                  hintText: 'Misal: Toilet Lantai 2, Kantin Kampus UNPRI',
+                                  prefixIcon: const Icon(Icons.location_on_outlined, size: 20, color: SanitaColors.primary),
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: isDark ? SanitaColors.darkBorder : SanitaColors.border)),
+                                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: isDark ? SanitaColors.darkBorder : SanitaColors.border)),
                                 ),
                               ),
 
-                              const SizedBox(height: 8),
+                              const SizedBox(height: 6),
 
-                              // Quick location chips
+                              // Quick chips lokasi
                               SingleChildScrollView(
                                 scrollDirection: Axis.horizontal,
                                 child: Row(
@@ -421,13 +499,9 @@ class _LaporLingkunganViewState extends State<LaporLingkunganView> {
                                       padding: const EdgeInsets.only(right: 6),
                                       child: ActionChip(
                                         label: Text(loc, style: const TextStyle(fontSize: 11)),
-                                        backgroundColor: Colors.white,
-                                        side: const BorderSide(color: SanitaColors.border),
-                                        onPressed: () {
-                                          setState(() {
-                                            _lokasiController.text = loc;
-                                          });
-                                        },
+                                        backgroundColor: isDark ? SanitaColors.darkCard : Colors.white,
+                                        side: BorderSide(color: isDark ? SanitaColors.darkBorder : SanitaColors.border),
+                                        onPressed: () => setState(() => _lokasiController.text = loc),
                                       ),
                                     );
                                   }).toList(),
@@ -436,95 +510,156 @@ class _LaporLingkunganViewState extends State<LaporLingkunganView> {
 
                               const SizedBox(height: 16),
 
-                              // Keterangan
-                              const Text(
-                                'Keterangan kondisi yang ditemukan',
-                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: SanitaColors.textDark),
+                              // Tingkat Urgensi
+                              const Text('Tingkat Urgensi', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                              const SizedBox(height: 6),
+                              Row(
+                                children: [
+                                  _buildUrgensiChip('Rendah', SanitaColors.primaryLight),
+                                  const SizedBox(width: 8),
+                                  _buildUrgensiChip('Sedang', SanitaColors.accentAmber),
+                                  const SizedBox(width: 8),
+                                  _buildUrgensiChip('Mendesak', SanitaColors.alertRed),
+                                ],
                               ),
+
+                              const SizedBox(height: 16),
+
+                              // Keterangan Masalah
+                              const Text('Keterangan / Deskripsi *', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
                               const SizedBox(height: 6),
                               TextField(
                                 controller: _keteranganController,
                                 maxLines: 4,
-                                style: const TextStyle(color: SanitaColors.textDark, fontSize: 13),
+                                style: TextStyle(color: isDark ? Colors.white : SanitaColors.textDark, fontSize: 13),
                                 decoration: InputDecoration(
-                                  hintText: 'Jelaskan masalah sanitasi (misal: genangan air, kran bocor, tempat sampah meluap)...',
-                                  hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 12),
                                   filled: true,
-                                  fillColor: Colors.white,
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: SanitaColors.border)),
-                                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: SanitaColors.border)),
+                                  fillColor: isDark ? SanitaColors.darkCard : Colors.white,
+                                  hintText: 'Jelaskan kondisi sanitasi secara rinci, misalnya: genangan air di koridor, tempat sampah penuh, kran wastafel bocor...',
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: isDark ? SanitaColors.darkBorder : SanitaColors.border)),
+                                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: isDark ? SanitaColors.darkBorder : SanitaColors.border)),
                                 ),
                               ),
 
                               const SizedBox(height: 16),
 
-                              // Foto Bukti
-                              const Text(
-                                'Foto bukti lingkungan (opsional)',
-                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: SanitaColors.textDark),
-                              ),
+                              // Upload Bukti Foto (SUNGGUHAN MENGGUNAKAN IMAGE PICKER)
+                              const Text('Upload Bukti Foto (Kamera / Galeri)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
                               const SizedBox(height: 6),
-                              Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(color: SanitaColors.border),
-                                ),
-                                child: Row(
-                                  children: [
-                                    OutlinedButton.icon(
-                                      onPressed: () {
-                                        setState(() {
-                                          _attachedFileName = 'bukti_sanitasi_${DateTime.now().millisecondsSinceEpoch % 1000}.jpg';
-                                        });
-                                      },
-                                      icon: const Icon(Icons.camera_alt_outlined, size: 16),
-                                      label: const Text('Ambil / Pilih Foto', style: TextStyle(fontSize: 12)),
-                                      style: OutlinedButton.styleFrom(
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Text(
-                                        _attachedFileName ?? 'Belum ada foto',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: _attachedFileName != null ? SanitaColors.primary : SanitaColors.textMuted,
-                                          fontWeight: _attachedFileName != null ? FontWeight.w600 : FontWeight.normal,
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                    if (_attachedFileName != null)
-                                      IconButton(
-                                        icon: const Icon(Icons.close, size: 18, color: SanitaColors.alertRed),
-                                        onPressed: () {
-                                          setState(() {
-                                            _attachedFileName = null;
-                                          });
-                                        },
-                                      ),
-                                  ],
-                                ),
-                              ),
 
-                              const SizedBox(height: 22),
+                              if (_pickedImage != null) ...[
+                                Container(
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: SanitaColors.primary, width: 1.5),
+                                  ),
+                                  child: Stack(
+                                    children: [
+                                      ClipRRect(
+                                        borderRadius: BorderRadius.circular(10),
+                                        child: Image.file(
+                                          _pickedImage!,
+                                          height: 160,
+                                          width: double.infinity,
+                                          fit: BoxFit.cover,
+                                        ),
+                                      ),
+                                      Positioned(
+                                        top: 8,
+                                        right: 8,
+                                        child: GestureDetector(
+                                          onTap: () {
+                                            setState(() {
+                                              _pickedImage = null;
+                                              _pickedImagePath = null;
+                                            });
+                                          },
+                                          child: Container(
+                                            padding: const EdgeInsets.all(6),
+                                            decoration: const BoxDecoration(
+                                              color: Colors.black70,
+                                              shape: BoxShape.circle,
+                                            ),
+                                            child: const Icon(Icons.close, color: Colors.white, size: 18),
+                                          ),
+                                        ),
+                                      ),
+                                      Positioned(
+                                        bottom: 8,
+                                        left: 8,
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: Colors.black70,
+                                            borderRadius: BorderRadius.circular(6),
+                                          ),
+                                          child: const Row(
+                                            children: [
+                                              Icon(Icons.check_circle, color: SanitaColors.primaryLight, size: 14),
+                                              SizedBox(width: 4),
+                                              Text('Foto Berhasil Terlampir', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ] else ...[
+                                InkWell(
+                                  onTap: _showPhotoSourceSheet,
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+                                    decoration: BoxDecoration(
+                                      color: isDark ? SanitaColors.darkCard : Colors.white,
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(color: isDark ? SanitaColors.darkBorder : SanitaColors.border, style: BorderStyle.solid),
+                                    ),
+                                    child: const Column(
+                                      children: [
+                                        Icon(Icons.add_a_photo_outlined, size: 36, color: SanitaColors.primary),
+                                        SizedBox(height: 8),
+                                        Text('Ambil Foto Kamera atau Pilih dari Galeri', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: SanitaColors.primary)),
+                                        SizedBox(height: 2),
+                                        Text('Format JPG / PNG, ukuran otomatis terkompresi', style: TextStyle(fontSize: 11, color: SanitaColors.textMuted)),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+
+                              const SizedBox(height: 24),
 
                               // Button Kirim Laporan
                               SizedBox(
                                 width: double.infinity,
                                 child: ElevatedButton(
                                   onPressed: _isSubmitting ? null : _kirimLaporan,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: SanitaColors.primary,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(vertical: 14),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  ),
                                   child: _isSubmitting
-                                      ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                                      : const Text('Kirim Laporan Sanitasi'),
+                                      ? const SizedBox(
+                                          height: 20,
+                                          width: 20,
+                                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                        )
+                                      : const Row(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            Icon(Icons.send_rounded, size: 18),
+                                            SizedBox(width: 8),
+                                            Text('Kirim Laporan Sanitasi', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                                          ],
+                                        ),
                                 ),
                               ),
 
-                              const SizedBox(height: 30),
+                              const SizedBox(height: 20),
                             ],
                           ),
                         ),
@@ -540,34 +675,25 @@ class _LaporLingkunganViewState extends State<LaporLingkunganView> {
     );
   }
 
-  Widget _buildUrgencyChip(String label, Color color) {
+  Widget _buildUrgensiChip(String label, Color color) {
     final isSelected = _selectedUrgensi == label;
     return Expanded(
-      child: InkWell(
-        onTap: () {
-          setState(() {
-            _selectedUrgensi = label;
-          });
-        },
-        borderRadius: BorderRadius.circular(8),
+      child: GestureDetector(
+        onTap: () => setState(() => _selectedUrgensi = label),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 9),
+          padding: const EdgeInsets.symmetric(vertical: 8),
           decoration: BoxDecoration(
-            color: isSelected ? color.withOpacity(0.12) : Colors.white,
+            color: isSelected ? color : color.withOpacity(0.1),
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: isSelected ? color : SanitaColors.border,
-              width: isSelected ? 1.8 : 1.0,
-            ),
+            border: Border.all(color: color, width: isSelected ? 1.5 : 1),
           ),
-          child: Center(
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                color: isSelected ? color : SanitaColors.textDark,
-              ),
+          alignment: Alignment.center,
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+              color: isSelected ? Colors.white : color,
             ),
           ),
         ),

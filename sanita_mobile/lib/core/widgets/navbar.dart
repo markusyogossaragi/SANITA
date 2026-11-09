@@ -13,12 +13,13 @@ class SanitaNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       height: 68,
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: SanitaColors.border, width: 1)),
-        boxShadow: [
+      decoration: BoxDecoration(
+        color: isDark ? SanitaColors.darkCard : Colors.white,
+        border: Border(top: BorderSide(color: isDark ? SanitaColors.darkBorder : SanitaColors.border, width: 1)),
+        boxShadow: const [
           BoxShadow(
             color: Color(0x0D000000),
             blurRadius: 10,

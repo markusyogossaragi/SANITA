@@ -17,20 +17,31 @@ class SanitaColors {
   static const Color textDark       = Color(0xFF1E293B);
   static const Color textMuted      = Color(0xFF64748B);
   static const Color textLight      = Colors.white;
+
+  // Dark Theme Palette
+  static const Color darkBackground = Color(0xFF0F1713);
+  static const Color darkSurface    = Color(0xFF18241F);
+  static const Color darkCard       = Color(0xFF1F2E27);
+  static const Color darkBorder     = Color(0xFF2D3F37);
+  static const Color darkText       = Color(0xFFF1F5F9);
+  static const Color darkTextMuted  = Color(0xFF94A3B8);
 }
 
 class SanitaTheme {
   static ThemeData get lightTheme {
     return ThemeData(
       useMaterial3: true,
+      brightness: Brightness.light,
       colorScheme: ColorScheme.fromSeed(
         seedColor: SanitaColors.primary,
+        brightness: Brightness.light,
         primary: SanitaColors.primary,
         secondary: SanitaColors.primaryLight,
         background: SanitaColors.background,
         surface: SanitaColors.surface,
       ),
       scaffoldBackgroundColor: SanitaColors.background,
+      cardColor: SanitaColors.surface,
       appBarTheme: const AppBarTheme(
         backgroundColor: SanitaColors.primary,
         foregroundColor: Colors.white,
@@ -48,6 +59,51 @@ class SanitaTheme {
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: SanitaColors.primary,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          textStyle: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+
+  static ThemeData get darkTheme {
+    return ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.dark,
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: SanitaColors.primary,
+        brightness: Brightness.dark,
+        primary: SanitaColors.primaryLight,
+        secondary: SanitaColors.primary,
+        background: SanitaColors.darkBackground,
+        surface: SanitaColors.darkSurface,
+      ),
+      scaffoldBackgroundColor: SanitaColors.darkBackground,
+      cardColor: SanitaColors.darkCard,
+      appBarTheme: const AppBarTheme(
+        backgroundColor: SanitaColors.darkSurface,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        centerTitle: false,
+      ),
+      cardTheme: CardThemeData(
+        color: SanitaColors.darkCard,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: SanitaColors.darkBorder, width: 1),
+        ),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: SanitaColors.primaryLight,
           foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
           shape: RoundedRectangleBorder(
